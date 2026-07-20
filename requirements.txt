@@ -1,0 +1,4 @@
+# Core (Modul 1-2: input_parser, fetcher, CLI)
+requests>=2.31
+trafilatura>=1.6
+PyYAML>=6.0

@@ -1,0 +1,13 @@
+# Beispiel-Artefakte, eine pro Zeile.
+# Leerzeilen und '#'-Kommentare werden ignoriert.
+# Typ wird automatisch erkannt; optional erzwingbar per "typ: wert".
+
+https://example.com
+example.org/blog
+max.mustermann@example.com
+@nightowl_88
+nightowl_88
+Max Mustermann
+"Erika Fake-Name"
+name: J. Doe
+username: gh0st.writer

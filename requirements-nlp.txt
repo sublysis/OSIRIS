@@ -1,0 +1,6 @@
+# NLP-Kern (Modul 3: NER, Keyphrases, Stilometrie) - passt zum Fokus Selektor+Stilometrie.
+# Leichtgewichtig (kein torch).
+spacy>=3.7
+scikit-learn>=1.4
+yake>=0.4.8
+# Danach: python -m spacy download de_core_news_lg

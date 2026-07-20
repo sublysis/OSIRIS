@@ -1,0 +1,39 @@
+input:
+  comment_prefix: "#"
+
+fetcher:
+  user_agent: "osint-tool/0.1 (+research; contact via config)"
+  timeout: 20
+  min_delay_per_domain: 2.0
+  respect_robots: true
+  max_bytes: 2000000
+
+search:
+  default_provider: searxng
+  providers:
+    searxng:
+      base_url: "http://localhost:8080"
+    brave:
+      enabled: false
+      # api_key in config/secrets.yaml
+    serpapi:
+      enabled: false
+
+nlp:
+  spacy_model: "de_core_news_lg"
+  keyphrase_lang: "de"
+  keyphrase_top: 20
+  stylometry_threshold: 0.0
+
+correlate:
+  min_score: 0.3
+  stylometry_min: 0.3
+  weights:
+    stylometry: 0.5
+    shared_domain: 0.4
+    shared_entity: 0.6
+    seed_in_doc: 0.7
+
+report:
+  db_path: "data/osint.sqlite"
+  output_dir: "reports"
