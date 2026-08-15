@@ -8,9 +8,9 @@ from .base import ToolResult, ToolWrapper
 
 
 class MaigretWrapper(ToolWrapper):
-    """Username -> Konten auf vielen Plattformen. Schreibt JSON-Report in ein Temp-Verzeichnis.
+    """Username -> accounts on many platforms. Writes a JSON report to a temp directory.
 
-    Flags koennen je nach maigret-Version variieren; roher stdout wird zusaetzlich behalten.
+    Flags may vary depending on the maigret version; raw stdout is kept as well.
     """
 
     name = "maigret"
@@ -18,7 +18,7 @@ class MaigretWrapper(ToolWrapper):
 
     def run(self, target, timeout=240):
         if not self.available():
-            return ToolResult(self.name, target, available=False, error=f"{self.binary} nicht installiert")
+            return ToolResult(self.name, target, available=False, error=f"{self.binary} not installed")
         folder = tempfile.mkdtemp(prefix="maigret_")
         try:
             proc = subprocess.run(

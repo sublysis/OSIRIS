@@ -50,12 +50,12 @@ class EntityExtractor:
             try:
                 import spacy
             except ImportError as e:
-                raise RuntimeError("spaCy fehlt - pip install -r requirements-nlp.txt") from e
+                raise RuntimeError("spaCy missing - pip install -r requirements-nlp.txt") from e
             try:
                 self._nlp = spacy.load(self.model_name)
             except OSError as e:
                 raise RuntimeError(
-                    f"spaCy-Modell '{self.model_name}' fehlt - "
+                    f"spaCy model '{self.model_name}' missing - "
                     f"python -m spacy download {self.model_name}"
                 ) from e
         return self._nlp

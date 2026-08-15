@@ -1,23 +1,24 @@
 # osint_stylometric_search
 
-OSINT-Tool: klassifiziert Artefakte (URL, E-Mail, Username, Name) aus einer
-txt-Liste, holt Texte von URLs und korreliert Urheber/Muster im Netz.
+OSINT tool: classifies artifacts (URL, email, username, name) from a txt
+list, fetches text from URLs, and correlates authorship/patterns across the web.
 
-Trotz Name ist **Sentiment nicht der Motor** — der Kern sind **Selektor-Suche**
-(harte Wiedererkennung) und **Stilometrie** (Schreibstil-Fingerabdruck).
-Sentiment ist optionale Anreicherung.
+Despite the name, **sentiment is not the engine** — the core is **selector
+search** (hard re-identification) and **stylometry** (writing-style
+fingerprint). Sentiment is optional enrichment.
 
 ## Pipeline (modular)
 
 ```
-input_parser/  ->  fetcher/  ->  nlp/  ->  search/  ->  correlate/  ->  report/
+input_parser/  ->  fetcher/  ->  nlp/  ->  search/  ->  whois/  ->  certs/  ->  correlate/  ->  report/
 ```
 
-Status: **komplette Pipeline lauffähig** (Modul 1-6). Volle NLP-/Such-Qualität
-erst nach Installation der optionalen Deps (siehe Setup) bzw. mit laufendem
-SearXNG und installierten OSINT-Tools.
+Status: **full pipeline runnable**, including the optional WHOIS/RDAP and
+Certificate Transparency stages. Full NLP/search quality only after
+installing the optional deps (see Setup) resp. with a running SearXNG and
+installed OSINT tools.
 
-## Setup (lokal / venv)
+## Setup (local / venv)
 
 ```bash
 python -m venv .venv
@@ -25,48 +26,61 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-NLP-Kern (NER/Keyphrases/Stilometrie): `pip install -r requirements-nlp.txt` und
-`python -m spacy download de_core_news_lg`.
-Optionales Sentiment (groß, torch): `pip install -r requirements-sentiment.txt`.
+NLP core (NER/keyphrases/stylometry): `pip install -r requirements-nlp.txt` and
+`python -m spacy download <model>`, where `<model>` matches `nlp.spacy_model`
+in `config/default.yaml` (default `en_core_web_md`; see the
+[spaCy models list](https://github.com/explosion/spacy-models) for
+alternatives — e.g. `de_core_news_lg` for German). Changing `nlp.spacy_model`
+in the config does **not** install/download the model — it must be pulled
+separately in every environment that runs `--nlp` (`scripts/install.sh`
+handles this automatically, see Deployment).
+Optional sentiment (large, torch): `pip install -r requirements-sentiment.txt`.
+`--whois` and `--certs` need no extra dependency (both use `requests`,
+already a core requirement). Favicon hashing (part of `--fetch`) uses
+`mmh3` (Shodan-compatible hash) if installed — also in core requirements,
+but falls back to md5-only hashing if it's missing.
 
-**Automatisch auf einem Debian/Ubuntu-Server (inkl. SearXNG):** `bash scripts/install.sh`
-(siehe Deployment).
+**Automatic on a Debian/Ubuntu server (incl. SearXNG):** `bash scripts/install.sh`
+(see Deployment).
 
-## Nutzung
+## Usage
 
 ```bash
-# Nur klassifizieren:
+# Classify only:
 python cli.py examples/artifacts.txt
 
-# Texte von URLs holen:
+# Fetch text from URLs:
 python cli.py examples/artifacts.txt --fetch
 
-# Voller Durchlauf: fetch + NLP + Websuche + Korrelation + Report + JSON:
-python cli.py examples/artifacts.txt --nlp --search --correlate --save --report --json out.json
+# Full run: fetch + NLP + web search + WHOIS + certs + correlation + report + JSON:
+python cli.py examples/artifacts.txt --nlp --search --whois --certs --correlate --save --report --json out.json
 ```
 
 ### Flags
 
-| Flag | Wirkung |
-|------|---------|
-| `--fetch` | Text von URL-Artefakten abrufen (robots.txt + Rate-Limit) |
-| `--nlp` | NER, Keyphrases, Stilometrie (impliziert `--fetch`) |
-| `--search` | Selektoren via Suchprovider + maigret/holehe suchen |
-| `--provider NAME` | Provider override: `searxng` (default), `brave`, `serpapi` |
-| `--limit N` | max Web-Treffer pro Selektor |
-| `--correlate` | geteilte Quellen/Entitaeten/Stil -> gescorte Verknuepfungen |
-| `--monitor` | mit vorherigem Run vergleichen (neue/verschwundene Ziele & Links) |
-| `--history` | gespeicherte Runs dieser Eingabe auflisten und beenden |
-| `--save` | Run in SQLite persistieren (`config.report.db_path`) |
-| `--report [md,html]` | lesbare Reports schreiben (`config.report.output_dir`) |
-| `--out-dir DIR` | Zielverzeichnis fuer Reports |
-| `--json FILE` | vollstaendiges Ergebnis als JSON |
+| Flag | Effect |
+|------|--------|
+| `--fetch` | fetch text from URL artifacts (robots.txt + rate limit); also hashes the page favicon |
+| `--whois` | RDAP WHOIS lookup for URL artifacts (registrar/registrant/dates) |
+| `--certs` | Certificate Transparency lookup via crt.sh (subdomains, certificate IDs) |
+| `--nlp` | NER, keyphrases, stylometry (implies `--fetch`) |
+| `--search` | look up selectors via search provider + maigret/holehe |
+| `--provider NAME` | provider override: `searxng` (default), `brave`, `serpapi` |
+| `--limit N` | max web hits per selector |
+| `--correlate` | shared sources/entities/style/registrant/favicon/cert -> scored links |
+| `--monitor` | compare with the previous run (new/gone targets & links) |
+| `--history` | list stored runs for this input and exit |
+| `--save` | persist run to SQLite (`config.report.db_path`) |
+| `--report [md,html,graphml,maltego]` | write reports; `graphml`/`maltego` export the `--correlate` link network as a graph (not part of the default `md,html`) |
+| `--out-dir DIR` | target directory for reports |
+| `--json FILE` | full result as JSON |
+| `--from-json FILE` | regenerate `--report`/`--json` from a previously written `--json` file, no network calls (see below); replaces `input`, skips all other pipeline flags |
 
-Eingabeformat: eine Zeile pro Artefakt. Typ wird automatisch erkannt, lässt sich
-aber per Präfix erzwingen (`name:`, `username:`, `url:`, `email:`).
-`#`-Zeilen und Leerzeilen werden ignoriert.
+Input format: one artifact per line. Type is auto-detected, but can be
+forced with a prefix (`name:`, `username:`, `url:`, `email:`).
+`#` lines and blank lines are ignored.
 
-## Artifact Types (English)
+## Artifact Types
 
 Each line in the input file is classified into one of these types. Detection
 is automatic, but you can force a type with an explicit `type: value` prefix
@@ -74,7 +88,7 @@ is automatic, but you can force a type with an explicit `type: value` prefix
 
 | Type | Explicit prefix | Auto-detected when | Normalization | Used for |
 |------|------------------|---------------------|----------------|----------|
-| `url` | `url:` | starts with `http://`/`https://`, or looks like a bare domain (`example.com`, `example.org/blog`) | `https://` is prepended if no scheme given | `--fetch` downloads the page text (robots.txt + rate-limit respected); `--nlp` runs NER/keyphrases/stylometry on the fetched text |
+| `url` | `url:` | starts with `http://`/`https://`, or looks like a bare domain (`example.com`, `example.org/blog`) | `https://` is prepended if no scheme given | `--fetch` downloads the page text and hashes its favicon (robots.txt + rate-limit respected); `--whois` looks up the domain's RDAP registrar/registrant/dates; `--certs` looks up crt.sh subdomains/certificate IDs; `--nlp` runs NER/keyphrases/stylometry on the fetched text |
 | `email` | `email:` | matches `local@domain.tld` | lowercased | `--search` runs holehe (checks which services the address is registered on) and web search |
 | `username` | `username:` | no spaces, not an email/URL/domain (also matches a leading `@handle`) | leading `@` stripped | `--search` runs maigret (checks the handle across social platforms) and web search |
 | `name` | `name:` | contains a space and isn't classified as URL/email | left as-is | `--search` runs a web search (quoted exact-match query) |
@@ -95,16 +109,19 @@ name: J. Doe
 username: gh0st.writer
 ```
 
-Only `url` gets its page content fetched. `email`, `username`, and `name` are
-treated as **selectors** — they're looked up (web search + maigret/holehe),
-not fetched as pages. `--correlate` then looks for shared sources, entities,
-or writing style linking different selectors/URLs together.
+Only `url` gets its page content fetched (and optionally WHOIS-/certs-looked-up).
+`email`, `username`, and `name` are treated as **selectors** — they're looked
+up (web search + maigret/holehe), not fetched as pages. `--correlate` then
+looks for shared sources, entities, registrants, favicons, certificates, or
+writing style linking different selectors/URLs together.
 
-## Example Workflow (English)
+## Example Workflow
 
 There is no crawler — you curate the artifact list yourself, one artifact per
-line. `--fetch`/`--nlp` only pull the text of URLs you already listed; they
-don't discover new links, emails, or usernames on the page.
+line. `--fetch`/`--nlp`/`--whois`/`--certs` only work on artifacts you
+already listed; they don't discover new links, emails, or usernames on the
+page (though `--certs` does surface subdomains from CT logs as *data*, not
+as new artifacts to further process).
 
 1. Create an input file with the artifacts you want to investigate:
 
@@ -118,12 +135,14 @@ name:Jane Doe
 EOF
 ```
 
-2. Run the full pipeline: fetch page text, run NLP (NER/keyphrases/stylometry),
+2. Run the full pipeline: fetch page text + favicon, look up WHOIS and
+   Certificate Transparency data, run NLP (NER/keyphrases/stylometry),
    search the selectors on the web + maigret/holehe, correlate shared
-   sources/style, persist the run, and write reports:
+   sources/style/registrants/favicons/certs, persist the run, and write
+   reports (including a graph export for Gephi/Maltego):
 
 ```bash
-python cli.py targets.txt --fetch --nlp --search --correlate --save --report --json out.json
+python cli.py targets.txt --fetch --whois --certs --nlp --search --correlate --save --report md,html,graphml --json out.json
 ```
 
 3. Re-run later against the same file to see what changed:
@@ -142,47 +161,115 @@ If you want automatic artifact discovery (e.g. crawling `example.com` for
 sitemap links, emails, or social handles), that's a separate feature — not
 part of `cli.py` today.
 
-## Konfiguration
+## Configuration
 
-`config/default.yaml` steuert Fetcher (User-Agent, Rate-Limit, robots.txt),
-Suchprovider und Report. API-Keys gehören in `config/secrets.yaml` (gitignored).
-Standardquelle für Websuche ist **selbst gehostetes SearXNG**; Bezahl-APIs
-(Brave, SerpAPI) sind optional zuschaltbar.
+`config/default.yaml` controls the fetcher (user agent, rate limit,
+robots.txt, favicon hashing), WHOIS (RDAP endpoint, timeout, delay),
+Certificate Transparency (crt.sh endpoint, timeout, delay, result cap),
+search providers, and reports. API keys belong in `config/secrets.yaml`
+(gitignored). The default web search source is **self-hosted SearXNG**;
+paid APIs (Brave, SerpAPI) are optionally switchable.
 
 ### Fetcher / robots.txt
 
-`--fetch` respektiert standardmäßig `robots.txt` (`fetcher.respect_robots: true`).
-Verbietet die Zielseite den Zugriff für den konfigurierten User-Agent, wird das
-URL-Artefakt übersprungen (`durch robots.txt verboten`) statt trotzdem geholt zu
-werden — bewusste Design-Entscheidung für verantwortungsvolles/legales
-Scraping, siehe auch Abschnitt „Rechtlich".
+`--fetch` respects `robots.txt` by default (`fetcher.respect_robots: true`).
+If the target page disallows the configured user agent, the URL artifact is
+skipped (`disallowed by robots.txt`) instead of being fetched anyway — a
+deliberate design choice for responsible/legal scraping, see also the
+"Legal" section.
 
-- **Fail-open bei nicht erreichbarer robots.txt**: Ist die Datei selbst nicht
-  abrufbar (Timeout, 404, DNS-Fehler etc.), wird das Fetchen erlaubt. Nur ein
-  *explizites* Disallow blockiert.
-- **Rate-Limit**: `fetcher.min_delay_per_domain` (Default 2s) erzwingt eine
-  Mindestpause zwischen Requests an dieselbe Domain.
-- **User-Agent**: `fetcher.user_agent` identifiziert das Tool gegenüber dem
-  Zielserver (Default `osint-tool/0.1 (+research; contact via config)`).
-- **Abschalten**: `respect_robots: false` in `config/default.yaml` (oder in
-  einer per `--config` übergebenen Override-Datei) deaktiviert die Prüfung
-  komplett. Nur nach Rücksprache/rechtlicher Prüfung verwenden.
+- **Fail-open when robots.txt is unreachable**: if the file itself can't be
+  fetched (timeout, 404, DNS error, ...), fetching is allowed. Only an
+  *explicit* disallow blocks it.
+- **Rate limit**: `fetcher.min_delay_per_domain` (default 2s) enforces a
+  minimum pause between requests to the same domain.
+- **User agent**: `fetcher.user_agent` identifies the tool to the target
+  server (default `osint-tool/0.1 (+research; contact via config)`).
+- **Disabling it**: `respect_robots: false` in `config/default.yaml` (or in
+  an override file passed via `--config`) disables the check entirely. Only
+  use after consultation / legal review.
+- **Favicon hashing**: `fetcher.fetch_favicon` (default `true`) hashes the
+  page's favicon (`mmh3`/Shodan-compatible + `md5` fallback) whenever
+  `--fetch` succeeds — no separate flag. `fetcher.favicon_max_bytes` caps
+  the download size (default 512 KB). Set `fetch_favicon: false` to skip it.
 
-## Monitoring / Zeitreihen
+### NLP / spaCy Model
 
-`--save` legt jeden Lauf in SQLite ab. `--monitor` vergleicht den aktuellen Lauf
-mit dem letzten gespeicherten Lauf **derselben Eingabedatei** und zeigt neue bzw.
-verschwundene Ziele und Verknüpfungen. `--history` listet die bisherigen Läufe.
+`--nlp` uses spaCy for NER. Two config keys control this and should stay in
+the same language:
+
+- **`nlp.spacy_model`** (default `en_core_web_md`) — the spaCy model to
+  load. Must already be downloaded in the environment that's running
+  (see below) — the config value alone doesn't install anything.
+- **`nlp.keyphrase_lang`** (default `en`) — language code for yake's
+  keyphrase extractor; should match `spacy_model`'s language.
+
+**Switching the model:**
+
+1. Edit `nlp.spacy_model` (and `nlp.keyphrase_lang` if the language
+   changes) in `config/default.yaml`, or in an override file passed via
+   `--config`.
+2. Download the new model in **every** environment that runs `--nlp` — a
+   config edit on one machine does not affect any other (dev laptop, prod
+   server, CI, ...):
+   ```bash
+   python -m spacy download <model>
+   ```
+   Browse available models at the
+   [spaCy models list](https://github.com/explosion/spacy-models) (e.g.
+   `de_core_news_lg` for German, `en_core_web_md`/`en_core_web_lg` for
+   English — larger models are more accurate but slower/heavier).
+3. Re-running `scripts/install.sh` on a server reads the *currently*
+   configured `nlp.spacy_model` and downloads that — convenient when
+   (re)deploying after a model switch, no need to edit the script.
+
+If the configured model isn't installed, `--nlp` fails with a clear
+`RuntimeError` that names the exact `python -m spacy download <model>`
+command to run — not a silent fallback to a different model.
+
+### WHOIS / RDAP
+
+`--whois` looks up the domain of each `url` artifact via RDAP (no legacy
+WHOIS/port 43 fallback — see [`docs/interpreting-scores.md`](docs/interpreting-scores.md)
+for coverage and redaction caveats). Results are cached per domain for the
+run and rate-limited between requests.
+
+- **`whois.rdap_base_url`** (default `https://rdap.org/domain`): a public
+  RDAP bootstrap/redirect endpoint — no local IANA registry map to maintain.
+  Point this at a different aggregator or a self-hosted bootstrap if needed.
+- **`whois.min_delay`** (default 1.0s): minimum pause between RDAP requests.
+- **`whois.timeout`** (default 15s).
+
+### Certificate Transparency (crt.sh)
+
+`--certs` looks up each `url` artifact's domain on [crt.sh](https://crt.sh),
+a free community-run CT log search service. It has **no SLA and is known to
+be slow or briefly return errors under normal load** — a `--certs` error
+means "try again," not "no certificates exist" (see
+[`docs/interpreting-scores.md`](docs/interpreting-scores.md)).
+
+- **`certs.crtsh_base_url`** (default `https://crt.sh`).
+- **`certs.min_delay`** (default 2.0s) and **`certs.timeout`** (default 30s,
+  deliberately generous given crt.sh's latency).
+- **`certs.max_results`** (default 200): caps how many subdomains/certificate
+  IDs are stored per domain, since popular domains can be logged under
+  thousands of certificates.
+
+## Monitoring / Timeline
+
+`--save` stores every run in SQLite. `--monitor` compares the current run
+with the last stored run for **the same input file** and shows new/gone
+targets and links. `--history` lists past runs.
 
 ```bash
-# Erstlauf speichern:
-python cli.py artefakte.txt --nlp --search --correlate --save
+# Save the first run:
+python cli.py artifacts.txt --nlp --search --correlate --save
 
-# Spaeter erneut - was ist neu?
-python cli.py artefakte.txt --nlp --search --correlate --monitor --save
+# Re-run later - what's new?
+python cli.py artifacts.txt --nlp --search --correlate --monitor --save
 
-# Verlauf ansehen:
-python cli.py artefakte.txt --history
+# View history:
+python cli.py artifacts.txt --history
 ```
 
 ## Interpreting Scores
@@ -195,30 +282,66 @@ tally and a cosine-similarity metric, respectively. See
 explanation and a checklist for reading results responsibly before drawing
 conclusions.
 
+## Graph Export (Gephi / Maltego)
+
+`--report graphml` and `--report maltego` export the `--correlate` link
+network (selectors as nodes, links as edges with `score`/`evidence`
+attributes) — opt-in, not part of the default `--report` (`md,html`).
+Targets found only via `--search` (web hits, accounts) aren't graphed as
+separate nodes; see "Shared Targets" in the md/html report for those.
+
+```bash
+python cli.py targets.txt --nlp --search --correlate --report md,html,graphml,maltego
+```
+
+- **`.graphml`**: open directly in [Gephi](https://gephi.org) or yEd.
+- **`.csv`** (from the `maltego` format): a generic `source,source_type,
+  target,target_type,score,evidence` edge list. Maltego has no single fixed
+  CSV schema — use its **Import Graph from Table** wizard and map `source`/
+  `target` to the two entity columns.
+
+### Extracting a report after the fact
+
+Forgot `graphml`/`maltego` (or any other format) when you ran `--report`,
+and don't want to re-run `--whois`/`--certs`/`--search` again? If that run
+also used `--json`, replay it — no network calls, near-instant:
+
+```bash
+python cli.py --from-json out.json --report maltego,graphml --out-dir reports
+```
+
+`--from-json` replaces the `input` argument entirely and skips
+`--fetch`/`--whois`/`--certs`/`--nlp`/`--search`/`--correlate`/`--monitor`/
+`--save`/`--history` if passed alongside it (with a warning) — it only
+re-renders `--report`/`--json` from the artifacts/correlation data already
+in the file. If the original run didn't use `--json`, there's currently no
+way to extract a report from a `--save`d SQLite run without re-running the
+pipeline.
+
 ## Deployment (Vultr VPS)
 
-Auf einem frischen Debian/Ubuntu-Server:
+On a fresh Debian/Ubuntu server:
 
 ```bash
 git clone <repo> && cd osint_stylometric_search
-bash scripts/install.sh            # Deps + spaCy-Modell + maigret/holehe + SearXNG (Docker)
+bash scripts/install.sh            # deps + spaCy model + maigret/holehe + SearXNG (Docker)
 # optional: --with-sentiment (torch), --no-searxng, --no-tools, --port N
 ```
 
-Das Script legt ein `.venv/` an, installiert alles und startet **SearXNG** als
-Docker-Container, gebunden an `127.0.0.1:8080` (nicht öffentlich erreichbar), mit
-aktivierter JSON-API und deaktiviertem Rate-Limiter. Danach:
+The script creates a `.venv/`, installs everything, and starts **SearXNG**
+as a Docker container bound to `127.0.0.1:8080` (not publicly reachable),
+with the JSON API enabled and the rate limiter disabled. Then:
 
 ```bash
 source .venv/bin/activate
-python cli.py deine_artefakte.txt --nlp --search --correlate --save --report
+python cli.py your_artifacts.txt --nlp --search --correlate --save --report
 ```
 
-Sicherheit: SearXNG bleibt lokal (nur der VPS selbst greift zu). Der generierte
-`server.secret_key` liegt in `searxng/settings.yml` (gitignored).
+Security: SearXNG stays local (only the VPS itself can reach it). The
+generated `server.secret_key` lives in `searxng/settings.yml` (gitignored).
 
-## Rechtlich
+## Legal
 
-EU/DSGVO beachten, sobald reale Personen profiliert/korreliert werden:
-Zweckbindung, Datensparsamkeit, Nachvollziehbarkeit. Nur für legitime Zwecke
-(autorisiertes Security-Research, Journalismus, Marken-/Threat-Monitoring).
+Observe EU/GDPR requirements once real people are being profiled/correlated:
+purpose limitation, data minimization, traceability. For legitimate purposes
+only (authorized security research, journalism, brand/threat monitoring).

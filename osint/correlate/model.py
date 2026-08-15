@@ -3,14 +3,14 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Evidence:
-    kind: str      # stylometry | shared_domain | shared_entity | seed_in_doc
+    kind: str      # stylometry | shared_domain | shared_entity | seed_in_doc | shared_registrant | shared_favicon | shared_cert
     detail: str
     weight: float
 
 
 @dataclass
 class Target:
-    key: str       # kanonischer Dedup-Schluessel
+    key: str       # canonical dedup key
     kind: str      # url | account
     value: str
     sources: list = field(default_factory=list)  # [{"seed":.., "via":.., "url":..}]

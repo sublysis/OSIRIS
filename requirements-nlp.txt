@@ -1,6 +1,8 @@
-# NLP-Kern (Modul 3: NER, Keyphrases, Stilometrie) - passt zum Fokus Selektor+Stilometrie.
-# Leichtgewichtig (kein torch).
+# NLP core (module 3: NER, keyphrases, stylometry) - matches the selector+stylometry focus.
+# Lightweight (no torch).
 spacy>=3.7
 scikit-learn>=1.4
 yake>=0.4.8
-# Danach: python -m spacy download de_core_news_lg
+# Afterwards: download the spaCy model configured in config/default.yaml
+# (nlp.spacy_model), e.g. python -m spacy download en_core_web_md
+# scripts/install.sh does this automatically, reading nlp.spacy_model.

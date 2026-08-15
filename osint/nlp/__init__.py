@@ -1,11 +1,11 @@
-"""NLP-Stufe (Modul 3): NER, Keyphrases, Stilometrie, (optional) Sentiment.
+"""NLP stage (module 3): NER, keyphrases, stylometry, (optional) sentiment.
 
-Alle schweren Abhaengigkeiten (spaCy, yake, scikit-learn, transformers) werden
-lazy geladen - der Paket-Import bleibt leichtgewichtig. Fehlt eine Dependency,
-wirft die jeweilige Methode einen RuntimeError mit Installationshinweis; die
-Regex-NER und basic_features laufen ganz ohne Deps.
+All heavy dependencies (spaCy, yake, scikit-learn, transformers) are lazily
+loaded - the package import stays lightweight. If a dependency is missing,
+the respective method raises a RuntimeError with an installation hint; the
+regex NER and basic_features run entirely without deps.
 
-Benoetigt requirements-nlp.txt (+ python -m spacy download de_core_news_lg).
+Requires requirements-nlp.txt (+ python -m spacy download de_core_news_lg).
 """
 
 from .keyphrases import Keyphrase, KeyphraseExtractor

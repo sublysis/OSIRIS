@@ -1,5 +1,5 @@
-# Optionales Sentiment-Modul (nachgelagert, nur bei Bedarf).
-# Gross wegen torch - nur installieren, wenn Sentiment wirklich gebraucht wird.
+# Optional sentiment module (downstream, only if needed).
+# Large because of torch - only install if sentiment is actually needed.
 transformers>=4.40
 torch>=2.2
-# Modell: oliverguhr/german-sentiment-bert (lazy download beim ersten Aufruf)
+# Model: oliverguhr/german-sentiment-bert (lazy download on first call)

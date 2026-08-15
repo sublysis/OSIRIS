@@ -7,6 +7,8 @@ fetcher:
   min_delay_per_domain: 2.0
   respect_robots: true
   max_bytes: 2000000
+  fetch_favicon: true
+  favicon_max_bytes: 512000
 
 search:
   default_provider: searxng
@@ -20,10 +22,23 @@ search:
       enabled: false
 
 nlp:
-  spacy_model: "de_core_news_lg"
-  keyphrase_lang: "de"
+  # https://github.com/explosion/spacy-models
+  # spacy_model: "de_core_news_lg"
+  spacy_model: "en_core_web_md"
+  keyphrase_lang: "en"
   keyphrase_top: 20
   stylometry_threshold: 0.0
+
+whois:
+  rdap_base_url: "https://rdap.org/domain"
+  timeout: 15
+  min_delay: 1.0
+
+certs:
+  crtsh_base_url: "https://crt.sh"
+  timeout: 30
+  min_delay: 2.0
+  max_results: 200
 
 correlate:
   min_score: 0.3
@@ -33,6 +48,9 @@ correlate:
     shared_domain: 0.4
     shared_entity: 0.6
     seed_in_doc: 0.7
+    shared_registrant: 0.5
+    shared_favicon: 0.6
+    shared_cert: 0.7
 
 report:
   db_path: "data/osint.sqlite"

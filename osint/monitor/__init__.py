@@ -1,8 +1,8 @@
-"""Monitoring / Zeitreihen (Modul 7).
+"""Monitoring / timeline (module 7).
 
-Vergleicht den aktuellen Lauf mit dem vorherigen gespeicherten Lauf derselben
-Eingabe und liefert neue/verschwundene Ziele und Verknuepfungen. Baut auf den
-in SQLite gespeicherten Runs (report.store) auf.
+Compares the current run with the previous stored run of the same input
+and returns new/gone targets and links. Builds on the runs stored in
+SQLite (report.store).
 """
 
 from osint.report.store import get_previous_run, get_runs

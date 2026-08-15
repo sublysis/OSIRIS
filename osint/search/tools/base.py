@@ -14,7 +14,7 @@ class ToolResult:
 
 
 class ToolWrapper:
-    """Basis fuer externe OSINT-CLI-Tools. Fehlt das Binary, wird graceful uebersprungen."""
+    """Base for external OSINT CLI tools. Skipped gracefully if the binary is missing."""
 
     name = "tool"
     binary = "tool"
@@ -24,7 +24,7 @@ class ToolWrapper:
 
     def run(self, target, timeout=180):
         if not self.available():
-            return ToolResult(self.name, target, available=False, error=f"{self.binary} nicht installiert")
+            return ToolResult(self.name, target, available=False, error=f"{self.binary} not installed")
         try:
             proc = subprocess.run(
                 [self.binary, *self._args(target)],

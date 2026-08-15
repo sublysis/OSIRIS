@@ -24,7 +24,7 @@ def render_html(output, meta=None):
     artifacts = output.get("artifacts", [])
     corr = output.get("correlation", {}) or {}
     p = [
-        "<!doctype html><html lang='de'><head><meta charset='utf-8'>",
+        "<!doctype html><html lang='en'><head><meta charset='utf-8'>",
         "<title>Vallanx Stylomentric OSINT-Report</title><style>", _CSS, "</style></head><body>",
         "<h1>Vallanx Stylomentric OSINT-Report</h1>",
     ]
@@ -36,10 +36,60 @@ def render_html(output, meta=None):
     if meta_rows:
         p.append("<ul>" + "".join(meta_rows) + "</ul>")
 
-    p.append("<h2>Artefacts</h2><table><tr><th>Type</th><th>Anzahl</th></tr>")
+    p.append("<h2>Artefacts</h2><table><tr><th>Type</th><th>Count</th></tr>")
     for k, v in _counts(artifacts).items():
         p.append(f"<tr><td>{escape(k)}</td><td>{v}</td></tr>")
     p.append("</table>")
+
+    whois_entries = [a for a in artifacts if a.get("whois")]
+    if whois_entries:
+        p.append(
+            "<h2>WHOIS</h2><table><tr><th>URL</th><th>Domain</th><th>Registrar</th>"
+            "<th>Registrant Org</th><th>Created</th><th>Expires</th></tr>"
+        )
+        for a in whois_entries:
+            w = a["whois"]
+            if not w.get("ok"):
+                p.append(
+                    f"<tr><td>{escape(a['value'])}</td><td colspan='5'>error: {escape(w.get('error') or '')}</td></tr>"
+                )
+                continue
+            registrant = w.get("registrant_org") or "(redacted/absent)"
+            p.append(
+                "<tr>"
+                f"<td>{escape(a['value'])}</td>"
+                f"<td>{escape(w.get('domain') or '')}</td>"
+                f"<td>{escape(w.get('registrar') or '')}</td>"
+                f"<td>{escape(registrant)}</td>"
+                f"<td>{escape(w.get('created') or '')}</td>"
+                f"<td>{escape(w.get('expires') or '')}</td>"
+                "</tr>"
+            )
+        p.append("</table>")
+
+    cert_entries = [a for a in artifacts if a.get("certs")]
+    if cert_entries:
+        p.append(
+            "<h2>Certificate Transparency</h2><table><tr><th>URL</th><th>Domain</th>"
+            "<th>Certs</th><th>Subdomains</th></tr>"
+        )
+        for a in cert_entries:
+            c = a["certs"]
+            if not c.get("ok"):
+                p.append(
+                    f"<tr><td>{escape(a['value'])}</td><td colspan='3'>error: {escape(c.get('error') or '')}</td></tr>"
+                )
+                continue
+            subdomains = escape(", ".join(c.get("subdomains", [])[:15]))
+            p.append(
+                "<tr>"
+                f"<td>{escape(a['value'])}</td>"
+                f"<td>{escape(c.get('domain') or '')}</td>"
+                f"<td>{c.get('cert_count', 0)}</td>"
+                f"<td>{subdomains}</td>"
+                "</tr>"
+            )
+        p.append("</table>")
 
     shared = [t for t in corr.get("targets", []) if t.get("seed_count", 0) >= 2]
     if shared:
@@ -80,6 +130,10 @@ def render_html(output, meta=None):
                 p.append(f"<li>Title: {escape(d['title'])}</li>")
             if d.get("chars"):
                 p.append(f"<li>Characters: {d['chars']}</li>")
+            if d.get("favicon_mmh3") is not None or d.get("favicon_md5"):
+                fav = f"mmh3 {d.get('favicon_mmh3')}" if d.get("favicon_mmh3") is not None else "mmh3 n/a"
+                fav += f", md5 {d.get('favicon_md5')}" if d.get("favicon_md5") else ""
+                p.append(f"<li>Favicon: {escape(fav)}</li>")
             ents = d.get("entities", [])
             if ents:
                 p.append("<li>Entities: " + escape(", ".join(f"{e['text']} ({e['label']})" for e in ents[:15])) + "</li>")

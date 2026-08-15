@@ -1,4 +1,4 @@
-"""OSINT-Tool: Artefakte klassifizieren, Texte holen, korrelieren.
+"""OSINT tool: classify artifacts, fetch texts, correlate.
 
 Pipeline: input_parser -> fetcher -> nlp -> search -> correlate -> report
 """

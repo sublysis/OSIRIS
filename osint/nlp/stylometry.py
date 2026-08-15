@@ -2,7 +2,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 
-# Themenunabhaengige, stilrelevante Funktionswoerter (DE + etwas EN).
+# Topic-independent, style-relevant function words (DE + some EN).
 FUNCTION_WORDS = [
     "der", "die", "das", "und", "oder", "aber", "weil", "dass", "wenn", "als", "wie",
     "ich", "du", "er", "sie", "es", "wir", "ihr", "man", "mein", "dein", "sein",
@@ -18,7 +18,7 @@ _SENT_RE = re.compile(r"[.!?]+")
 
 
 def basic_features(text):
-    """Handgemachte Stil-Statistiken, reines Python (keine Deps)."""
+    """Hand-rolled style statistics, pure Python (no deps)."""
     words = _WORD_RE.findall(text.lower())
     n = len(words) or 1
     chars = len(text) or 1
@@ -42,7 +42,7 @@ def basic_features(text):
 
 @dataclass
 class StylometryModel:
-    """char-n-gram TF-IDF + Kosinus-Aehnlichkeit als Autor-Fingerabdruck."""
+    """char-n-gram TF-IDF + cosine similarity as author fingerprint."""
 
     ngram_range: tuple = (2, 4)
     max_features: int = 2000
@@ -56,7 +56,7 @@ class StylometryModel:
         try:
             from sklearn.feature_extraction.text import TfidfVectorizer
         except ImportError as e:
-            raise RuntimeError("scikit-learn fehlt - pip install -r requirements-nlp.txt") from e
+            raise RuntimeError("scikit-learn missing - pip install -r requirements-nlp.txt") from e
         self._vec = TfidfVectorizer(
             analyzer="char_wb", ngram_range=self.ngram_range, max_features=self.max_features
         )

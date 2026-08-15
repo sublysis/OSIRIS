@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 
 class SearchError(RuntimeError):
-    """Provider nicht erreichbar, Key fehlt, oder ungueltige Antwort."""
+    """Provider unreachable, key missing, or invalid response."""
 
 
 @dataclass
@@ -25,7 +25,7 @@ class SearchProvider(ABC):
 
     @abstractmethod
     def search(self, query, limit=20):
-        """Gibt eine Liste von SearchHit zurueck. Wirft SearchError bei Problemen."""
+        """Returns a list of SearchHit. Raises SearchError on problems."""
         raise NotImplementedError
 
 
@@ -33,5 +33,5 @@ def requests_or_raise():
     try:
         import requests
     except ImportError as e:
-        raise SearchError("requests fehlt - pip install -r requirements.txt") from e
+        raise SearchError("requests missing - pip install -r requirements.txt") from e
     return requests

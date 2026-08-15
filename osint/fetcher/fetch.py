@@ -1,8 +1,10 @@
+import base64
+import hashlib
 import re
 import time
 from dataclasses import dataclass
 from urllib import robotparser
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 try:
     import requests
@@ -14,10 +16,17 @@ try:
 except ImportError:
     trafilatura = None
 
+try:
+    import mmh3
+except ImportError:
+    mmh3 = None
+
 _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 _TAG_RE = re.compile(r"<[^>]+>")
 _SCRIPT_RE = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
 _WS_RE = re.compile(r"\s+")
+_ICON_LINK_RE = re.compile(r"<link[^>]+rel=[\"']?(?:shortcut icon|icon)[\"']?[^>]*>", re.IGNORECASE)
+_HREF_RE = re.compile(r"href=[\"']([^\"'>]+)[\"']", re.IGNORECASE)
 
 
 @dataclass
@@ -27,6 +36,9 @@ class FetchResult:
     status: int | None = None
     title: str | None = None
     text: str | None = None
+    favicon_url: str | None = None
+    favicon_mmh3: int | None = None  # Shodan-compatible (http.favicon.hash)
+    favicon_md5: str | None = None
     error: str | None = None
 
 
@@ -38,19 +50,21 @@ class Fetcher:
         self.min_delay = cfg.get("min_delay_per_domain", 2.0)
         self.respect_robots = cfg.get("respect_robots", True)
         self.max_bytes = cfg.get("max_bytes", 2_000_000)
+        self.fetch_favicon = cfg.get("fetch_favicon", True)
+        self.favicon_max_bytes = cfg.get("favicon_max_bytes", 512_000)
         self._last = {}
         self._robots = {}
 
     def fetch(self, url):
         if requests is None:
-            return FetchResult(url, False, error="requests fehlt - pip install -r requirements.txt")
+            return FetchResult(url, False, error="requests missing - pip install -r requirements.txt")
 
         parsed = urlparse(url)
         if parsed.scheme not in ("http", "https") or not parsed.netloc:
-            return FetchResult(url, False, error="ungueltige URL")
+            return FetchResult(url, False, error="invalid URL")
 
         if self.respect_robots and not self._allowed(parsed, url):
-            return FetchResult(url, False, error="durch robots.txt verboten")
+            return FetchResult(url, False, error="disallowed by robots.txt")
 
         self._wait(parsed.netloc)
 
@@ -65,19 +79,82 @@ class Fetcher:
             return FetchResult(url, False, error=str(e))
 
         encoding = resp.encoding or "utf-8"
-        content = self._read_capped(resp)
+        content = self._read_capped(resp, self.max_bytes)
         html = content.decode(encoding, errors="replace")
         title, text = self._extract(html, url)
-        return FetchResult(url, resp.ok, status=resp.status_code, title=title, text=text)
 
-    def _read_capped(self, resp):
+        favicon_url = favicon_mmh3 = favicon_md5 = None
+        if self.fetch_favicon:
+            favicon_url, favicon_mmh3, favicon_md5 = self._fetch_favicon(html, url)
+
+        return FetchResult(
+            url, resp.ok, status=resp.status_code, title=title, text=text,
+            favicon_url=favicon_url, favicon_mmh3=favicon_mmh3, favicon_md5=favicon_md5,
+        )
+
+    def _read_capped(self, resp, max_bytes):
         content = b""
         for chunk in resp.iter_content(8192):
             content += chunk
-            if len(content) >= self.max_bytes:
+            if len(content) >= max_bytes:
                 break
         resp.close()
         return content
+
+    def _fetch_favicon(self, html, page_url):
+        href = self._find_favicon_href(html)
+        favicon_url = urljoin(page_url, href) if href else urljoin(page_url, "/favicon.ico")
+        parsed = urlparse(favicon_url)
+
+        if parsed.scheme == "data":
+            mmh3_hash, md5_hash = self._hash_data_uri(favicon_url)
+            return favicon_url, mmh3_hash, md5_hash
+
+        if parsed.scheme not in ("http", "https"):
+            return favicon_url, None, None
+
+        if self.respect_robots and not self._allowed(parsed, favicon_url):
+            return favicon_url, None, None
+
+        self._wait(parsed.netloc)
+        try:
+            resp = requests.get(
+                favicon_url, headers={"User-Agent": self.user_agent}, timeout=self.timeout, stream=True
+            )
+        except requests.RequestException:
+            return favicon_url, None, None
+
+        if not resp.ok:
+            resp.close()
+            return favicon_url, None, None
+
+        content = self._read_capped(resp, self.favicon_max_bytes)
+        mmh3_hash, md5_hash = self._hash_bytes(content)
+        return favicon_url, mmh3_hash, md5_hash
+
+    def _hash_data_uri(self, data_uri):
+        header, sep, payload = data_uri.partition(",")
+        if not sep or ";base64" not in header:
+            return None, None
+        try:
+            content = base64.b64decode(payload)
+        except (ValueError, base64.binascii.Error):
+            return None, None
+        return self._hash_bytes(content)
+
+    def _hash_bytes(self, content):
+        if not content:
+            return None, None
+        md5_hash = hashlib.md5(content).hexdigest()
+        mmh3_hash = mmh3.hash(base64.encodebytes(content)) if mmh3 is not None else None
+        return mmh3_hash, md5_hash
+
+    def _find_favicon_href(self, html):
+        m = _ICON_LINK_RE.search(html)
+        if not m:
+            return None
+        href = _HREF_RE.search(m.group(0))
+        return href.group(1) if href else None
 
     def _extract(self, html, url):
         title = None
@@ -112,7 +189,7 @@ class Fetcher:
             try:
                 rp.read()
             except Exception:
-                rp = None  # fail open, wenn robots.txt nicht erreichbar
+                rp = None  # fail open if robots.txt is unreachable
             self._robots[key] = rp
 
         rp = self._robots[key]

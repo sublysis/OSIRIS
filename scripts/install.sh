@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installer fuer osint_stylometric_search + SearXNG (Debian/Ubuntu, z. B. Vultr VPS).
+# Installer for osint_stylometric_search + SearXNG (Debian/Ubuntu, e.g. Vultr VPS).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,11 +15,11 @@ usage() {
   cat <<'EOF'
 Usage: bash scripts/install.sh [OPTIONS]
 
-  --with-sentiment   zusaetzlich Sentiment-Deps (transformers, torch) installieren
-  --no-searxng       SearXNG-Setup ueberspringen
-  --no-tools         maigret/holehe nicht installieren
-  --port N           SearXNG-Port (default 8080, nur an 127.0.0.1 gebunden)
-  -h, --help         diese Hilfe
+  --with-sentiment   also install sentiment deps (transformers, torch)
+  --no-searxng       skip SearXNG setup
+  --no-tools         don't install maigret/holehe
+  --port N           SearXNG port (default 8080, bound to 127.0.0.1 only)
+  -h, --help         this help
 EOF
 }
 
@@ -30,7 +30,7 @@ while [ $# -gt 0 ]; do
     --no-tools) INSTALL_TOOLS=0 ;;
     --port) shift; SEARXNG_PORT="$1" ;;
     -h|--help) usage; exit 0 ;;
-    *) echo "Unbekannte Option: $1" >&2; usage; exit 1 ;;
+    *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
   esac
   shift
 done
@@ -41,34 +41,41 @@ SUDO=""
 if [ "$(id -u)" -ne 0 ]; then SUDO="sudo"; fi
 
 if ! command -v apt-get >/dev/null 2>&1; then
-  echo "Dieses Script unterstuetzt nur Debian/Ubuntu (apt)." >&2
+  echo "This script only supports Debian/Ubuntu (apt)." >&2
   exit 1
 fi
 
-log "System-Pakete installieren"
+log "Installing system packages"
 $SUDO apt-get update -y
 $SUDO apt-get install -y python3 python3-venv python3-pip git curl openssl build-essential
 
-log "Python-venv anlegen: $VENV"
+log "Creating Python venv: $VENV"
 python3 -m venv "$VENV"
 # shellcheck disable=SC1091
 source "$VENV/bin/activate"
 pip install --upgrade pip wheel
 
-log "Core-Dependencies"
+log "Core dependencies"
 pip install -r "$ROOT/requirements.txt"
 
-log "NLP-Dependencies (spaCy, scikit-learn, yake)"
+log "NLP dependencies (spaCy, scikit-learn, yake)"
 pip install -r "$ROOT/requirements-nlp.txt"
-python -m spacy download de_core_news_lg
+
+SPACY_MODEL="$(cd "$ROOT" && python3 -c "from osint.config import load_config; print(load_config().get('nlp', {}).get('spacy_model', ''))")"
+if [ -z "$SPACY_MODEL" ]; then
+  echo "WARN: could not determine nlp.spacy_model from config/default.yaml, falling back to de_core_news_lg" >&2
+  SPACY_MODEL="de_core_news_lg"
+fi
+log "Downloading spaCy model: $SPACY_MODEL (from config/default.yaml nlp.spacy_model)"
+python -m spacy download "$SPACY_MODEL"
 
 if [ "$WITH_SENTIMENT" -eq 1 ]; then
-  log "Sentiment-Dependencies (transformers, torch) - das dauert"
+  log "Sentiment dependencies (transformers, torch) - this takes a while"
   pip install -r "$ROOT/requirements-sentiment.txt"
 fi
 
 if [ "$INSTALL_TOOLS" -eq 1 ]; then
-  log "OSINT-Tools (maigret, holehe)"
+  log "OSINT tools (maigret, holehe)"
   pip install maigret holehe
 fi
 
@@ -81,7 +88,7 @@ if [ "$INSTALL_SEARXNG" -eq 1 ]; then
 
   mkdir -p "$SEARXNG_DIR"
   if [ ! -f "$SEARXNG_DIR/settings.yml" ]; then
-    log "SearXNG-Config erzeugen (JSON aktiviert, Limiter aus)"
+    log "Generating SearXNG config (JSON enabled, limiter off)"
     SECRET="$(openssl rand -hex 32)"
     cat > "$SEARXNG_DIR/settings.yml" <<EOF
 use_default_settings: true
@@ -95,17 +102,17 @@ search:
     - json
 EOF
   else
-    log "SearXNG-Config existiert bereits - unveraendert"
+    log "SearXNG config already exists - unchanged"
   fi
 
-  log "SearXNG-Container starten (nur an 127.0.0.1:$SEARXNG_PORT)"
+  log "Starting SearXNG container (bound to 127.0.0.1:$SEARXNG_PORT only)"
   $SUDO docker rm -f searxng >/dev/null 2>&1 || true
   $SUDO docker run -d --name searxng --restart unless-stopped \
     -p "127.0.0.1:$SEARXNG_PORT:8080" \
     -v "$SEARXNG_DIR:/etc/searxng" \
     searxng/searxng:latest
 
-  log "SearXNG-Healthcheck (JSON-API)"
+  log "SearXNG health check (JSON API)"
   ok=0
   for _ in $(seq 1 15); do
     if curl -fsS "http://127.0.0.1:$SEARXNG_PORT/search?q=test&format=json" >/dev/null 2>&1; then
@@ -114,19 +121,19 @@ EOF
     sleep 2
   done
   if [ "$ok" -eq 1 ]; then
-    echo "SearXNG JSON-API erreichbar."
+    echo "SearXNG JSON API reachable."
   else
-    echo "WARN: SearXNG antwortet noch nicht auf die JSON-API. 'docker logs searxng' pruefen." >&2
+    echo "WARN: SearXNG isn't answering the JSON API yet. Check 'docker logs searxng'." >&2
   fi
 fi
 
-log "Fertig"
+log "Done"
 cat <<EOF
 
-Naechste Schritte:
+Next steps:
   source $VENV/bin/activate
-  python cli.py deine_artefakte.txt --nlp --search --correlate --save --report
+  python cli.py your_artifacts.txt --nlp --search --whois --correlate --save --report
 
-SearXNG laeuft unter http://127.0.0.1:$SEARXNG_PORT (entspricht dem Default in config/default.yaml).
-Bezahl-APIs optional: config/secrets.yaml aus config/secrets.example.yaml erstellen.
+SearXNG is running at http://127.0.0.1:$SEARXNG_PORT (matches the default in config/default.yaml).
+Paid APIs optional: create config/secrets.yaml from config/secrets.example.yaml.
 EOF

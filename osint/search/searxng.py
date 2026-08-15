@@ -2,7 +2,7 @@ from .base import SearchError, SearchHit, SearchProvider, requests_or_raise
 
 
 class SearxngProvider(SearchProvider):
-    """Self-hosted SearXNG (Standard). Instanz muss 'format: json' erlauben."""
+    """Self-hosted SearXNG (default). Instance must allow 'format: json'."""
 
     name = "searxng"
 
@@ -30,10 +30,10 @@ class SearxngProvider(SearchProvider):
             resp.raise_for_status()
             data = resp.json()
         except requests.RequestException as e:
-            raise SearchError(f"SearXNG nicht erreichbar ({self.base_url}): {e}") from e
+            raise SearchError(f"SearXNG unreachable ({self.base_url}): {e}") from e
         except ValueError as e:
             raise SearchError(
-                "SearXNG lieferte kein JSON - ist 'json' in der SearXNG-Config unter search.formats erlaubt?"
+                "SearXNG returned no JSON - is 'json' allowed in the SearXNG config under search.formats?"
             ) from e
 
         hits = []

@@ -9,7 +9,7 @@ _ENTITY_LABELS = ("EMAIL", "HANDLE", "PERSON", "ORG")
 
 
 def collect_targets(artifacts):
-    """Alle im Netz gefundenen Ziele deduplizieren und ihre Quell-Seeds sammeln."""
+    """Deduplicate all targets found on the web and collect their source seeds."""
     targets = {}
     for a in artifacts:
         seed = a["value"]
@@ -38,8 +38,11 @@ def build_links(artifacts, stylometry, config):
     pair_ev = defaultdict(list)
 
     _link_stylometry(pair_ev, stylometry, weights, stylometry_min)
-    _link_shared(pair_ev, _seed_domains(artifacts), weights["shared_domain"], "shared_domain", "gemeinsame Quelle")
-    _link_shared(pair_ev, _seed_entities(artifacts), weights["shared_entity"], "shared_entity", "gemeinsame Entitaet")
+    _link_shared(pair_ev, _seed_domains(artifacts), weights["shared_domain"], "shared_domain", "shared source")
+    _link_shared(pair_ev, _seed_entities(artifacts), weights["shared_entity"], "shared_entity", "shared entity")
+    _link_shared(pair_ev, _seed_whois(artifacts), weights["shared_registrant"], "shared_registrant", "shared registrant")
+    _link_shared(pair_ev, _seed_favicon(artifacts), weights["shared_favicon"], "shared_favicon", "shared favicon hash")
+    _link_shared(pair_ev, _seed_certs(artifacts), weights["shared_cert"], "shared_cert", "shared TLS certificate")
     _link_seed_in_doc(pair_ev, artifacts, weights["seed_in_doc"])
 
     links = []
@@ -62,7 +65,7 @@ def _link_stylometry(pair_ev, stylometry, weights, stylometry_min):
         sim = pair.get("similarity", 0.0)
         if sim >= stylometry_min:
             _add(pair_ev, pair["a"], pair["b"],
-                 Evidence("stylometry", f"Stil-Aehnlichkeit {sim:.2f}", round(weights["stylometry"] * sim, 3)))
+                 Evidence("stylometry", f"style similarity {sim:.2f}", round(weights["stylometry"] * sim, 3)))
 
 
 def _link_shared(pair_ev, seed_sets, weight, kind, label):
@@ -91,7 +94,7 @@ def _link_seed_in_doc(pair_ev, artifacts, weight):
             text = (a.get("text") or "").lower()
             if needle in tokens or needle in text:
                 _add(pair_ev, s["value"], a["value"],
-                     Evidence("seed_in_doc", f"'{s['value']}' erscheint in {a['value']}", weight))
+                     Evidence("seed_in_doc", f"'{s['value']}' appears in {a['value']}", weight))
 
 
 def _seed_domains(artifacts):
@@ -108,6 +111,51 @@ def _seed_domains(artifacts):
             elif acc.get("site"):
                 domains.add("account:" + acc["site"].lower())
         result[a["value"]] = domains
+    return result
+
+
+def _seed_whois(artifacts):
+    # Registrar alone is intentionally not used here: too many unrelated
+    # domains share large registrars (GoDaddy, Namecheap, ...) for that to
+    # be meaningful evidence - see docs/interpreting-scores.md.
+    result = {}
+    for a in artifacts:
+        items = set()
+        whois = a.get("whois") or {}
+        if whois.get("ok"):
+            org = whois.get("registrant_org")
+            if org:
+                items.add(("registrant org", org.strip().lower()))
+            email = whois.get("registrant_email")
+            if email:
+                items.add(("registrant email", email.strip().lower()))
+        result[a["value"]] = items
+    return result
+
+
+def _seed_favicon(artifacts):
+    # A default/generic favicon (e.g. a bare web server's placeholder icon)
+    # shared across unrelated sites is a known false-positive source for
+    # this kind of hash matching - see docs/interpreting-scores.md.
+    result = {}
+    for a in artifacts:
+        items = set()
+        if a.get("favicon_mmh3") is not None:
+            items.add(("mmh3", a["favicon_mmh3"]))
+        if a.get("favicon_md5"):
+            items.add(("md5", a["favicon_md5"]))
+        result[a["value"]] = items
+    return result
+
+
+def _seed_certs(artifacts):
+    # Matching on the literal crt.sh certificate id: two artifacts sharing
+    # an id means the *same* certificate (SAN list) covers both domains.
+    result = {}
+    for a in artifacts:
+        certs = a.get("certs") or {}
+        ids = certs.get("certificate_ids") if certs.get("ok") else None
+        result[a["value"]] = set(ids or [])
     return result
 
 

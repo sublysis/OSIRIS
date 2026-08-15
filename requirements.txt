@@ -1,4 +1,7 @@
-# Core (Modul 1-2: input_parser, fetcher, CLI)
+# Core (modules 1-2: input_parser, fetcher, CLI; also used by whois/, certs/)
 requests>=2.31
 trafilatura>=1.6
 PyYAML>=6.0
+# Shodan-compatible favicon hashing (http.favicon.hash); optional - fetcher
+# falls back to md5-only favicon hashing if this isn't installed.
+mmh3>=4.0

@@ -1,20 +1,31 @@
-"""Report-Stufe (Modul 6).
+"""Report stage (module 6).
 
-- store.save_run: Run in SQLite persistieren (runs/targets/links) fuer spaetere Vergleiche.
-- generate: lesbare Reports (Markdown, HTML) in report.output_dir schreiben.
-JSON gibt es direkt in der CLI via --json.
+- store.save_run: persist run in SQLite (runs/targets/links) for later comparisons.
+- generate: write human-readable reports (Markdown, HTML) to report.output_dir.
+  Also supports graph export (`graphml`, `maltego`) of the --correlate link
+  network - opt-in via `--report md,html,graphml,maltego`, not part of the
+  default format list.
+JSON is available directly in the CLI via --json.
 """
 
 import os
 from datetime import datetime, timezone
 
+from .graph import render_graphml, render_maltego_csv
 from .html import render_html
 from .markdown import render_markdown
 from .store import save_run
 
-_RENDERERS = {"md": (render_markdown, "md"), "html": (render_html, "html")}
+_RENDERERS = {
+    "md": (render_markdown, "md"),
+    "html": (render_html, "html"),
+    "graphml": (render_graphml, "graphml"),
+    "maltego": (render_maltego_csv, "csv"),
+}
 
-__all__ = ["save_run", "generate", "render_markdown", "render_html"]
+__all__ = [
+    "save_run", "generate", "render_markdown", "render_html", "render_graphml", "render_maltego_csv",
+]
 
 
 def generate(output, config, input_name=None, formats=("md", "html"), run_id=None, out_dir=None):

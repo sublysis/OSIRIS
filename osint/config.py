@@ -12,7 +12,7 @@ DEFAULT_CONFIG = PROJECT_ROOT / "config" / "default.yaml"
 
 def load_config(path=None):
     if yaml is None:
-        raise RuntimeError("PyYAML fehlt - 'pip install -r requirements.txt' ausfuehren")
+        raise RuntimeError("PyYAML missing - run 'pip install -r requirements.txt'")
     data = _read(DEFAULT_CONFIG)
     secrets = PROJECT_ROOT / "config" / "secrets.yaml"
     if secrets.exists():

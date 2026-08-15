@@ -2,7 +2,7 @@ from .base import SearchError, SearchHit, SearchProvider, requests_or_raise
 
 
 class SerpapiProvider(SearchProvider):
-    """SerpAPI (kostenpflichtig). Key aus config/secrets.yaml."""
+    """SerpAPI (paid). Key from config/secrets.yaml."""
 
     name = "serpapi"
     ENDPOINT = "https://serpapi.com/search.json"
@@ -15,7 +15,7 @@ class SerpapiProvider(SearchProvider):
 
     def search(self, query, limit=20):
         if not self.api_key:
-            raise SearchError("SerpAPI-Key fehlt (config/secrets.yaml -> search.providers.serpapi.api_key)")
+            raise SearchError("SerpAPI key missing (config/secrets.yaml -> search.providers.serpapi.api_key)")
         requests = requests_or_raise()
         try:
             resp = requests.get(
@@ -26,9 +26,9 @@ class SerpapiProvider(SearchProvider):
             resp.raise_for_status()
             data = resp.json()
         except requests.RequestException as e:
-            raise SearchError(f"SerpAPI Fehler: {e}") from e
+            raise SearchError(f"SerpAPI error: {e}") from e
         except ValueError as e:
-            raise SearchError("SerpAPI lieferte kein JSON") from e
+            raise SearchError("SerpAPI returned no JSON") from e
 
         hits = []
         for r in data.get("organic_results", [])[:limit]:

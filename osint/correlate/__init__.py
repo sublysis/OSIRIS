@@ -1,11 +1,11 @@
-"""Korrelations-Stufe (Modul 5).
+"""Correlation stage (module 5).
 
-Fuehrt die angereicherten Artefakte zusammen:
-- collect_targets: im Netz gefundene Ziele deduplizieren; von >=2 Seeds geteilte
-  Ziele sind ein starkes Korrelationssignal.
-- build_links: Seed<->Seed-Verknuepfungen aus geteilten Quellen, geteilten
-  Entitaeten, Stilometrie und "Seed erscheint in fremdem Dokument", gewichtet
-  zu einem Konfidenz-Score.
+Merges the enriched artifacts:
+- collect_targets: deduplicate targets found on the web; targets shared by
+  >=2 seeds are a strong correlation signal.
+- build_links: seed<->seed links from shared sources, shared entities,
+  stylometry and "seed appears in another document", weighted into a
+  confidence score.
 """
 
 from .linker import build_links, collect_targets

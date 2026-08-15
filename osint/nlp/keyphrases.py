@@ -8,7 +8,7 @@ class Keyphrase:
 
 
 class KeyphraseExtractor:
-    """YAKE-basiert. Niedrigerer Score = relevanter."""
+    """YAKE-based. Lower score = more relevant."""
 
     def __init__(self, lang="de", max_ngram=3, top=20):
         self.lang = lang
@@ -21,7 +21,7 @@ class KeyphraseExtractor:
             try:
                 import yake
             except ImportError as e:
-                raise RuntimeError("yake fehlt - pip install -r requirements-nlp.txt") from e
+                raise RuntimeError("yake missing - pip install -r requirements-nlp.txt") from e
             self._kw = yake.KeywordExtractor(lan=self.lang, n=self.max_ngram, top=self.top)
         return self._kw
 

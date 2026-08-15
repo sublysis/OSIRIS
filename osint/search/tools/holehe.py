@@ -7,7 +7,7 @@ _FOUND_RE = re.compile(r"\[\+\]\s+(\S+)")
 
 
 class HoleheWrapper(ToolWrapper):
-    """E-Mail -> genutzte Konten. Parst die '[+]'-Zeilen aus dem stdout."""
+    """Email -> accounts in use. Parses the '[+]' lines from stdout."""
 
     name = "holehe"
     binary = "holehe"

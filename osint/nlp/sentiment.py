@@ -10,7 +10,7 @@ class SentimentResult:
 
 
 class SentimentAnalyzer:
-    """Optional, nachgelagert. Lazy geladenes german-sentiment-bert via transformers."""
+    """Optional, downstream. Lazily loaded german-sentiment-bert via transformers."""
 
     def __init__(self, model=DEFAULT_MODEL, max_chars=2000):
         self.model_name = model
@@ -22,7 +22,7 @@ class SentimentAnalyzer:
             try:
                 from transformers import pipeline
             except ImportError as e:
-                raise RuntimeError("transformers fehlt - pip install -r requirements-sentiment.txt") from e
+                raise RuntimeError("transformers missing - pip install -r requirements-sentiment.txt") from e
             self._pipe = pipeline("sentiment-analysis", model=self.model_name, truncation=True)
         return self._pipe
 
