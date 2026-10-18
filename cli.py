@@ -1,3 +1,17 @@
+#!/usr/bin/env python3
+
+"""
+OSINT Stylometric Search
+
+Last updated: 10/2026
+
+GitHub Issues: https://github.com/sublysis/osint_stylometric_search/issues
+Author: Laurent Schueller, https://sublysis.github.io
+License: European Union Public Licence (EUPL) v1.2
+
+For authorized penetration testing and network auditing use only.
+"""
+
 import argparse
 import json
 import os
@@ -16,11 +30,13 @@ ascii_header = '''
 [0;37;40m███▓│  ███▓│ ▄▄▄▄┌─ ███▓│ ███▓│ ███▓│  ███▓│ ▒▒ ███▓│▒▒      ▄▄▄▄┌─ ███▓│ ▒▒ ███▓│▒▒ ▄▄▄▄┌─ ███▓│ ███▓│▓ ▄▄▄▄  ███▓│  ███▓│      ▄▄▄▄┌─ ███▓│ ███▓┌─┘▄▄▄▄  ███▓├─ ████│ ███▓┌─ ███▄┐ ███▓│▒ ▄▄▄▄  ███▓┌─ ████│[0m
 [0;37;40m└▓██▄▄▄█▓┌─┘ ▓███▄▄▄██▓┌┘ ███▓│ ▓███│  ███▓│ ▀▀ ███▓│▀▀      ▓███▄▄▄██▓┌┘ ▀▀ ███▓│▀▀ ▓███▄▄▄██▓┌┘ ▀███▄▄▄███▓│ └▓██▄▄▄█▓┌─┘      ▓███▄▄▄██▓┌┘ ▀███▄▄▄███▓│ ▓██▓│  ▓██▓│ ▓███│  ███▓│ ▀███▄▄▄███▓│ ▓██▓│  ▓██▓│[0m
 [0;37;40m  ───────┘    ─────────┘   ───┘  ───┘   ───┘     ───┘         ─────────┘      ───┘    ─────────┘     ────────┘   ───────┘         ─────────┘     ────────┘  ───┘   ───┘  ───┘   ───┘    ────────┘  ───┘   ───┘[0m
-Vallanx OSINT Stylometric Search Suite
-www.vallanx.com
+OSINT Stylometric Search Suite
 Version: 0.2.1
-Manual: github.com/vallanx-team/osint_stylometric_search
-Last updated: 08/2026 | Author: aristopunk | Copyright: Vallanx | For authorized penetration testing and network auditing use only. All rights reserved.
+Last updated: 08/2026
+Author: Laurent Schueller, https://sublysis.github.io
+License: European Union Public Licence (EUPL) v1.2
+For authorized penetration testing and network auditing use only. All rights reserved.
+Manual: github.com/sublysis/osint_stylometric_search
 '''
 
 

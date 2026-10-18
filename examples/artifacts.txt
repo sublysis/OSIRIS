@@ -1,13 +1,15 @@
-# Beispiel-Artefakte, eine pro Zeile.
-# Leerzeilen und '#'-Kommentare werden ignoriert.
-# Typ wird automatisch erkannt; optional erzwingbar per "typ: wert".
+# Example artefacts, one per line.
+# Blank lines and "#" comments are ignored.
+# Type is detected automatically; can optionally be specified using "type: value".
 
 https://example.com
 example.org/blog
-max.mustermann@example.com
+max.master@example.com
 @nightowl_88
 nightowl_88
-Max Mustermann
+Max Master
 "Erika Fake-Name"
 name: J. Doe
 username: gh0st.writer
+url:www.example.com
+email:test@test.com
