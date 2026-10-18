@@ -1,3 +1,0 @@
-scp -P 4512 -r -p -i "C:\Users\laure\.ssh\vultr01" aristopunk@209.250.246.36:/opt/tools/1_osint/stylometric_search/clients/greggsullivan/reports .
-
-scp -P 4512 -r -p -i "C:\Users\laure\.ssh\vultr01" aristopunk@209.250.246.36:/opt/tools/1_osint/stylometric_search/reports .
