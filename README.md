@@ -82,7 +82,7 @@ Each line in the input file is classified into one of these types. Detection is 
 | `email`    | `email:`        | matches `local@domain.tld`                                                                                                         | lowercased                                 | `--search` runs holehe (checks which services the address is registered on) and web search                                                                                                                                                                                      |
 | `username` | `username:`     | no spaces, not an email/URL/domain (also matches a leading `@handle`)                                                              | leading `@` stripped                       | `--search` runs maigret (checks the handle across social platforms) and web search                                                                                                                                                                                              |
 | `name`     | `name:`         | contains a space and isn't classified as URL/email                                                                                 | left as-is                                 | `--search` runs a web search (quoted exact-match query)                                                                                                                                                                                                                         |
-| `file`     | `file:`         | never auto-detected (prefix-only); a bare filename is ambiguous against the domain/username heuristics                             | none (relative path kept as-is)            | a local file artifact uploaded into a case's `uploads/` directory - ingestion and path-safety validation are handled by the (not-yet-implemented) local-file loading stage, not by `cli.py`'s classic `--fetch`                                                                 |
+| `file`     | `file:`         | never auto-detected (prefix-only); a bare filename is ambiguous against the domain/username heuristics                             | none (relative path kept as-is)            | a local document (uploaded into a case's `uploads/` directory) whose text is extracted by the `localfiles` stage - run via `cli.py --fetch` (`--case-dir` points at the `uploads/` parent) or incrementally via the MCP session layer; see ["MCP / Agentic Session Use"](#mcp--agentic-session-use)                                                                 |
 | `unknown`  | --              | fallback type in the enum; not currently reachable, since `_detect()` always falls back to `username` for anything without a space | --                                         | ignored by the pipeline                                                                                                                                                                                                                                                         |
 
 Examples (see `examples/artifacts.txt`):
@@ -205,6 +205,55 @@ python cli.py artifacts.txt --nlp --search --correlate --monitor --save
 # View history:
 python cli.py artifacts.txt --history
 ```
+
+## MCP / Agentic Session Use
+
+Alongside the classic one-shot `cli.py` (which runs the whole pipeline in a single batch over a static artifact list), the repo ships an **MCP server** (`mcp_server.py`) that exposes the pipeline as tools for an AI agent (Claude Desktop, Claude Code, or any MCP client) to drive **incrementally**: create a case, add one artifact at a time, run one stage at a time, inspect the state, repeat. This suits an interactive investigation where the next step depends on what the last step turned up, rather than a fully-specified batch run.
+
+State for an incremental investigation lives in a **per-case SQLite store** (`cases/<case_id>/case.sqlite`), separate from the classic `--save` database (`data/osint.sqlite`). Each case also gets a `cases/<case_id>/uploads/` directory. The cases root is configurable via `cases.root_dir` in `config/default.yaml` (default `cases`, gitignored).
+
+The server exposes six tools: `create_case`, `add_artifact`, `run_stage`, `get_state`, `generate_report`, `get_audit_log` (see `osint/session/service.py` for the implementation).
+
+### Current limitation: only `fetch` and `localfiles` run incrementally
+
+`run_stage` today only dispatches two stages: **`fetch`** (page text + favicon for `url` artifacts) and **`localfiles`** (text extraction for `file` artifacts). The remaining stages (`whois`, `certs`, `nlp`, `search`, `correlate`, `monitor`) are **not yet wired into the incremental session flow** and remain available only through the classic batch `cli.py` flags. Don't expect to drive WHOIS, CT, NLP, search, or correlation from the MCP session layer yet.
+
+### `file:` artifacts and local documents
+
+The `file` artifact type (prefix-only, `file:leak_doc.pdf`, never auto-detected) points at a document a user or journalist has manually placed in the case's `uploads/` directory. `add_artifact` with `type=file` requires the file to already exist under `<case_dir>/uploads/`. The `localfiles` stage then extracts its text, producing the same `ok`/`text`/`title`/`error` shape as a web fetch, so downstream stages treat local-file text like web-fetched text.
+
+Extractors by extension (`osint/localfiles/extractors/`):
+
+- **`.pdf`** - via the `pdftotext` binary (poppler).
+- **`.png` / `.jpg` / `.jpeg` / `.tif` / `.tiff`** - OCR via the `tesseract` binary.
+- **`.txt` / `.md` / `.csv` / `.log`** - plain Python read (no external binary).
+
+`pdftotext` and `tesseract` are external binaries, not Python packages - like the spaCy model, they must be installed separately. On a Debian/Ubuntu server `scripts/install.sh` installs `poppler-utils` and `tesseract-ocr` automatically and unconditionally (local-file extraction is core, not MCP-only); the MCP SDK itself is installed only with the `--with-mcp` flag. If a binary is missing, the extractor returns a clean "not installed" error instead of crashing.
+
+Path safety: `resolve_case_path` (`osint/localfiles/loader.py`) resolves the relative path strictly against `<case_dir>/uploads/` and rejects parent traversal (`..`), absolute paths, cross-drive escapes (Windows), NTFS alternate-data-stream / drive syntax (any `:` in the path), and trailing-dot/trailing-space filename tricks Windows would silently rewrite.
+
+The classic CLI can also load `file:` artifacts: `cli.py --fetch` (or `--nlp`) runs the `localfiles` stage over any `file` artifacts in the input, resolving `uploads/` under the directory given by `--case-dir DIR` (default: the input file's own directory).
+
+### Confirmation gate (why every risky stage needs `confirm=True`)
+
+Any stage that touches a network or spawns a subprocess (`fetch`, `localfiles`, plus `whois`/`certs`/`search` reserved for when they're wired in) is blocked by `osint/guardrails.py` unless `run_stage` is called with `confirm=True`. This keeps an MCP-driven agent from silently pivoting to a new target - contacting a third party, spawning a subprocess, or incurring cost - without a human explicitly approving that specific step. It's the practical expression of the **purpose-limitation** and **traceability** obligations described in the ["Legal"](#legal) section: an agent shouldn't widen the scope of a profiling operation on its own.
+
+Paid search providers (`brave`, `serpapi`) are additionally capped per case via `guardrails.max_paid_search_calls_per_case` (default 20); the default self-hosted `searxng` provider is not capped. (This budget applies once `search` is wired into the session flow; see the limitation above.)
+
+### Audit log / chain of custody
+
+Every `run_stage` call - whether it succeeded or was blocked (missing confirmation, unknown stage, budget exhausted) - writes an entry to the case's audit log, readable via `get_audit_log` (`cases/<case_id>/case.sqlite`). This is meant to double as a chain-of-custody record: a reviewable trail of exactly what was looked up, when, and on whose confirmation, suitable for sourcing an investigative story.
+
+### Running the server
+
+```bash
+pip install -r requirements-mcp.txt   # or: bash scripts/install.sh --with-mcp
+python mcp_server.py                   # stdio transport
+```
+
+To use it from an MCP client, add it as an MCP server that runs `python mcp_server.py` from this project's directory (consult your client's MCP configuration docs for the exact file/format - e.g. Claude Desktop's config).
+
+> **Note for readers following MCP SDK examples:** this server targets the **mcp 2.x** SDK (`requirements-mcp.txt` pins `mcp>=2,<3`) and uses the 2.x `MCPServer` API (`from mcp.server.mcpserver import MCPServer`). Many SDK examples online still show the older 1.x `FastMCP` API - that's a real version difference, not a typo; don't mix the two.
 
 ## Interpreting Scores
 

@@ -13,3 +13,6 @@ name: J. Doe
 username: gh0st.writer
 url:www.example.com
 email:test@test.com
+# file: artifacts resolve against <case-dir>/uploads/ and only load with --fetch
+# (needs a real uploaded file; see "MCP / Agentic Session Use" in README.md):
+file:leak_doc.pdf
