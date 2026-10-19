@@ -229,3 +229,5 @@ build.json
 
 *.md
 !Readme.md
+
+/.worktrees/
