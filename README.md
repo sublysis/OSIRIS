@@ -1,7 +1,8 @@
-# OSINT Stylometric Search
+![[banner.webp]]
+
+# OSIRIS - Open Source Intelligence Research & Investigative Stylometry
 
 > *Last updated: 10/2026 | Author: Laurent Schueller | For authorized penetration testing, lab / training, and auditing use only.*
-
 
 ##### OSINT Stylometric Search with modular components and ML
 
@@ -302,16 +303,14 @@ Security: SearXNG stays local (only the VPS itself can reach it). The generated 
 
 ## Legal
 
-Observe EU/GDPR requirements once real people are being profiled/correlated:
-purpose limitation, data minimization, traceability. For legitimate purposes
-only (authorized security research, journalism, brand/threat monitoring).
+Observe EU/GDPR requirements once real people are being profiled/correlated: purpose limitation, data minimization, traceability. For legitimate purposes only (authorized security research, journalism, brand/threat monitoring).
 
-## 📞 Support
+## Support
 
 If you have any questions or problems:
 
 1. Read the detailed README.md
-2. GitHub Issues: https://github.com/sublysis/osint_stylometric_search/issues
+2. GitHub Issues: https://github.com/sublysis/OSIRIS/issues
 3. Email: sublysis+support@techmail.at
 
 ## License
