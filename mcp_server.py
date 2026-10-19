@@ -20,7 +20,7 @@ from osint.report import generate as render_reports
 from osint.session import service
 
 mcp = MCPServer("osint-stylometric-search")
-CASES_ROOT = "cases"
+CASES_ROOT = load_config().get("cases", {}).get("root_dir", "cases")
 
 
 @mcp.tool()
