@@ -5,7 +5,7 @@ OSINT Stylometric Search
 
 Last updated: 10/2026
 
-GitHub Issues: https://github.com/sublysis/osint_stylometric_search/issues
+GitHub Issues: https://github.com/sublysis/OSIRIS/issues
 Author: Laurent Schueller, https://sublysis.github.io
 License: European Union Public Licence (EUPL) v1.2
 
@@ -22,21 +22,20 @@ from osint.config import load_config
 from osint.input_parser import ArtifactType, group_by_type, parse_file
 
 # ASCII HEADER
-# https://patorjk.com/software/taag/#p=display&f=TIC&t=OSINT+Stylo+Search&x=none&v=4&h=4&w=80&we=false&ft=thedraw
 ascii_header = '''
-[0;37;40m ▄▄▄▄▄▄▄▄▄    ▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄▄       ▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄ ▄▄▄▄   ▄▄▄▄  ▄▄▄▄          ▄▄▄▄▄▄▄▄▄         ▄▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄▄    ▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄   ▄▄▄▄ [0m
-[0;37;40m▄▓█▓┌─ ███▓┐ ▄██▓┌─ ███▓│ ███▓│ ███▓┌─ ███▓┐    ███▓┌──      ▄██▓┌─ ███▓│    ███▓┌── ███▓│  ███▓│ ███▓│░░░░░░░ ▄▓█▓┌─ ███▓┐      ▄██▓┌─ ███▓│ ███▓┌─ ███▓│ ███▓┌─ ███▓┐ ███▓┌─ ███▓┐ ███▓┌─ ███▓│ ███▓│  ███▓│[0m
-[0;37;40m███▓│  ████│ ▀███▄▄▄▄▄ ─┘ ███▓│ ███▓│  ████│ ░░ ███▓│░░      ▀███▄▄▄▄▄ ─┘ ░░ ███▓│░░ ▀███▄▄▄████│ ███▓│▒▒▒▒▒▒▒ ███▓│  ████│      ▀███▄▄▄▄▄ ─┘ ████▄▄  ───┘ ███▓│▄▄████│ ████▄▄▄██▀┌┘ ███▓│░  ───┘ ████▄▄▄████│[0m
-[0;37;40m███▓│  ███▓│ ▄▄▄▄┌─ ███▓│ ███▓│ ███▓│  ███▓│ ▒▒ ███▓│▒▒      ▄▄▄▄┌─ ███▓│ ▒▒ ███▓│▒▒ ▄▄▄▄┌─ ███▓│ ███▓│▓ ▄▄▄▄  ███▓│  ███▓│      ▄▄▄▄┌─ ███▓│ ███▓┌─┘▄▄▄▄  ███▓├─ ████│ ███▓┌─ ███▄┐ ███▓│▒ ▄▄▄▄  ███▓┌─ ████│[0m
-[0;37;40m└▓██▄▄▄█▓┌─┘ ▓███▄▄▄██▓┌┘ ███▓│ ▓███│  ███▓│ ▀▀ ███▓│▀▀      ▓███▄▄▄██▓┌┘ ▀▀ ███▓│▀▀ ▓███▄▄▄██▓┌┘ ▀███▄▄▄███▓│ └▓██▄▄▄█▓┌─┘      ▓███▄▄▄██▓┌┘ ▀███▄▄▄███▓│ ▓██▓│  ▓██▓│ ▓███│  ███▓│ ▀███▄▄▄███▓│ ▓██▓│  ▓██▓│[0m
-[0;37;40m  ───────┘    ─────────┘   ───┘  ───┘   ───┘     ───┘         ─────────┘      ───┘    ─────────┘     ────────┘   ───────┘         ─────────┘     ────────┘  ───┘   ───┘  ───┘   ───┘    ────────┘  ───┘   ───┘[0m
-OSINT Stylometric Search Suite
-Version: 0.2.1
-Last updated: 08/2026
+[0;37m ▄▄▄▄▄▄▄▄▄    ▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄   ▄▄▄▄   ▄▄▄▄▄▄▄▄▄▄ [0m
+[0;37m▄▓█▓┌─ ███▓┐ ▄██▓┌─ ███▓│ ███▓│ ███▓┌─ ███▓┐ ███▓│ ▄██▓┌─ ███▓│[0m
+[0;37m███▓│  ████│ ▀███▄▄▄▄▄ ─┘ ███▓│ ████▄▄▄██▀┌┘ ███▓│ ▀███▄▄▄▄▄ ─┘[0m
+[0;37m███▓│  ███▓│ ▄▄▄▄┌─ ███▓│ ███▓│ ███▓┌─ ███▄┐ ███▓│ ▄▄▄▄┌─ ███▓│[0m
+[0;37m└▓██▄▄▄█▓┌─┘ ▓███▄▄▄██▓┌┘ ███▓│ ▓███│  ███▓│ ███▓│ ▓███▄▄▄██▓┌┘[0m
+[0;37m  ───────┘    ─────────┘   ───┘  ───┘   ───┘  ───┘  ─────────┘ [0m
+OSIRIS - Open Source Intelligence Research & Investigative Stylometry
+Version: 0.2
+Last updated: 10/2026
 Author: Laurent Schueller, https://sublysis.github.io
 License: European Union Public Licence (EUPL) v1.2
 For authorized penetration testing and network auditing use only. All rights reserved.
-Manual: github.com/sublysis/osint_stylometric_search
+Manual: github.com/sublysis/OSIRIS
 '''
 
 

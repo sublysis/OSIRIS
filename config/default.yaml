@@ -2,7 +2,7 @@ input:
   comment_prefix: "#"
 
 fetcher:
-  user_agent: "osint-tool/0.1 (+research; contact via config)"
+  user_agent: "OSIRIS osint-tool/0.2 (+research; contact via config)"
   timeout: 20
   min_delay_per_domain: 2.0
   respect_robots: true

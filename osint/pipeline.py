@@ -1,9 +1,7 @@
-"""Pipeline stage orchestration, extracted out of cli.py so both the CLI
-and a future MCP server can drive the same logic. No print()/argparse here -
-callers render outcomes however fits their interface (stdout vs. MCP
-tool-call return value).
 """
-
+Pipeline stage orchestration, extracted out of cli.py so both the CLI and a future MCP server can drive the same logic. No print()/argparse here.
+Callers render outcomes however fits their interface (stdout vs. MCP tool-call return value).
+"""
 from osint.certs import CertClient
 from osint.correlate import correlate
 from osint.correlate.normalize import canonical_domain
@@ -174,6 +172,7 @@ def _nlp_stylometry(docs, config):
 
     labels = [d["value"] for d in docs]
     threshold = config.get("nlp", {}).get("stylometry_threshold", 0.0)
+
     try:
         model = StylometryModel().fit([d["text"] for d in docs], labels)
     except RuntimeError as e:
@@ -181,6 +180,7 @@ def _nlp_stylometry(docs, config):
 
     pairs = model.most_similar_pairs(threshold=threshold)
     stylometry = [{"a": a, "b": b, "similarity": round(score, 4)} for a, b, score in pairs]
+
     return stylometry, {"stylometry_pairs": pairs}
 
 
@@ -195,6 +195,7 @@ def run_search(groups, config, results, provider_name, limit):
         provider = None
 
     queries = []
+
     for art_type, fmt in ((ArtifactType.NAME, '"{}"'), (ArtifactType.EMAIL, '"{}"'), (ArtifactType.USERNAME, "{}")):
         for a in groups.get(art_type, []):
             queries.append((a.value, fmt.format(a.value)))
@@ -214,23 +215,45 @@ def run_search(groups, config, results, provider_name, limit):
 
     outcomes["tools"].append(_run_tool(MaigretWrapper(), groups.get(ArtifactType.USERNAME, []), by_value))
     outcomes["tools"].append(_run_tool(HoleheWrapper(), groups.get(ArtifactType.EMAIL, []), by_value))
+
     return outcomes
 
 
 def _run_tool(tool, artifacts, by_value):
     if not artifacts:
-        return {"name": tool.name, "binary": tool.binary, "status": "noop", "targets": 0}
+        return {
+            "name": tool.name, 
+            "binary": tool.binary, 
+            "status": "noop", 
+            "targets": 0
+        }
+
     if not tool.available():
-        return {"name": tool.name, "binary": tool.binary, "status": "unavailable", "targets": len(artifacts)}
+        return {
+            "name": tool.name, 
+            "binary": tool.binary, 
+            "status": "unavailable", 
+            "targets": len(artifacts)
+        }
+
     per_target = []
+    
     for a in artifacts:
         res = tool.run(a.value)
         entry = by_value.get(a.value, {})
         entry.setdefault("accounts", []).extend(res.hits)
-        per_target.append({"value": a.value, "hits": len(res.hits), "error": res.error})
+        per_target.append({
+            "value": a.value, 
+            "hits": len(res.hits), 
+            "error": res.error
+        })
+        
     return {
-        "name": tool.name, "binary": tool.binary, "status": "ran",
-        "targets": len(artifacts), "per_target": per_target,
+        "name": tool.name, 
+        "binary": tool.binary, 
+        "status": "ran",
+        "targets": len(artifacts), 
+        "per_target": per_target,
     }
 
 

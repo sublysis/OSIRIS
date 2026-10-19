@@ -36,7 +36,8 @@ def _parse(domain, entries, max_results):
 
 
 class CertClient:
-    """Certificate Transparency lookup via crt.sh, with per-run caching and rate-limiting.
+    """
+    Certificate Transparency lookup via crt.sh, with per-run caching and rate-limiting.
 
     crt.sh is a free community service backed by a large Postgres database -
     it has no SLA and is known to return slow responses, timeouts, or bare

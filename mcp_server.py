@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""MCP server exposing the osint_stylometric_search pipeline as tools for
-agentic/journalistic investigation workflows.
 
-Thin wrapper only - no pipeline/session logic lives here, see
-osint/session/service.py. Dispatchable stages that touch a network or spawn a
-subprocess (currently fetch and localfiles) require confirm=True; whois, certs
-and search are gated the same way but are reserved and not yet dispatchable.
-Set confirm=True only after the journalist has explicitly approved the pivot -
-i.e. the actual network fetch / subprocess spawn, third-party contact, and any
-cost it may incur (see osint/guardrails.py).
+"""
+MCP server exposing the OSIRIS pipeline as tools for agentic/journalistic investigation workflows.
+
+Thin wrapper only. No pipeline/session logic lives here, see osint/session/service.py. 
+
+Dispatchable stages that touch a network or spawn a subprocess (currently fetch and localfiles) require confirm=True; whois, certs and search are gated the same way but are reserved and not yet dispatchable. 
+
+Set confirm=True only after the journalist has explicitly approved the pivot, i.e. the actual network fetch / subprocess spawn, third-party contact, and any cost it may incur (see osint/guardrails.py).
 """
 
 from mcp.server.mcpserver import MCPServer
