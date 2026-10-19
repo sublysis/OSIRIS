@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pytest
 
@@ -28,7 +29,7 @@ def test_add_artifact_file_type_validates_upload_exists(tmp_path):
 
 def test_add_artifact_file_type_succeeds_when_uploaded(tmp_path):
     _, case_dir = service.create_case(str(tmp_path), "Operation Foo")
-    (open(os.path.join(case_dir, "uploads", "memo.txt"), "w")).write("x")
+    Path(case_dir, "uploads", "memo.txt").write_text("x")
     result = service.add_artifact(case_dir, "file", "memo.txt", added_via="agent")
     assert result["type"] == "file"
 
@@ -47,6 +48,16 @@ def test_run_stage_logs_blocked_attempt_to_audit(tmp_path):
         service.run_stage(case_dir, {}, "fetch", confirm=False)
     log = store.get_audit_log(case_dir)
     assert any(e["action"] == "run_stage:fetch" and e["confirmed"] is False for e in log)
+
+
+def test_run_stage_unknown_stage_raises_valueerror_and_audits(tmp_path):
+    _, case_dir = service.create_case(str(tmp_path), "Operation Foo")
+    with pytest.raises(ValueError) as exc:
+        service.run_stage(case_dir, {}, "nlp", confirm=True)
+    assert "nlp" in str(exc.value)
+    assert "available" in str(exc.value)
+    log = store.get_audit_log(case_dir)
+    assert any(e["action"] == "run_stage:nlp" and e["confirmed"] is False for e in log)
 
 
 def test_run_stage_fetch_persists_stage_result(tmp_path, monkeypatch):

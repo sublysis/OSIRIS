@@ -39,6 +39,10 @@ def add_artifact(case_dir, art_type, value, added_via):
 
 
 def run_stage(case_dir, config, stage, confirm=False):
+    if stage not in _STAGE_DISPATCH:
+        store.append_audit(case_dir, "agent", f"run_stage:{stage}", "blocked - unknown stage", False)
+        raise ValueError(f"unknown or not-yet-dispatchable stage '{stage}' (available: {sorted(_STAGE_DISPATCH)})")
+
     try:
         guardrails.require_confirmation(stage, confirm)
     except guardrails.ConfirmationRequired:
