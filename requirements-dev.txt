@@ -1,0 +1,2 @@
+# Dev-only - test suite for the pipeline/session/MCP refactor.
+pytest>=8.0
