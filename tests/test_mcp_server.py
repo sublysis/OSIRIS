@@ -2,6 +2,8 @@ import importlib
 
 import pytest
 
+pytest.importorskip("mcp")
+
 from mcp.server.mcpserver.exceptions import ToolError
 
 
