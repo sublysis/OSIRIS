@@ -72,6 +72,8 @@ python cli.py examples/artifacts.txt --nlp --search --whois --certs --correlate 
 | `--out-dir DIR` | target directory for reports |
 | `--json FILE` | full result as JSON |
 | `--from-json FILE` | regenerate `--report`/`--json` from a previously written `--json` file, no network calls (see below); replaces `input`, skips all other pipeline flags |
+| `--case-dir DIR` | directory containing `uploads/` for `file:` artifacts (default: input file's own directory) |
+| `--config FILE` | additional config file, merged over `config/default.yaml` |
 
 Input format: one artifact per line. Type is auto-detected, but can be forced with a prefix (`name:`, `username:`, `url:`, `email:`). `#` lines and blank lines are ignored.
 
@@ -289,9 +291,9 @@ python cli.py --from-json out.json --report maltego,graphml --out-dir reports
 On a fresh Debian/Ubuntu server:
 
 ```bash
-git clone <repo> && cd osint_stylometric_search
+git clone <repo> && cd OSIRIS
 bash scripts/install.sh            # deps + spaCy model + maigret/holehe + SearXNG (Docker)
-# optional: --with-sentiment (torch), --no-searxng, --no-tools, --port N
+# optional: --with-sentiment (torch), --with-mcp (MCP server deps), --no-searxng, --no-tools, --port N
 ```
 
 The script creates a `.venv/`, installs everything, and starts **SearXNG** as a Docker container bound to `127.0.0.1:8080` (not publicly reachable), with the JSON API enabled and the rate limiter disabled. Then:
