@@ -18,6 +18,17 @@ class LocalFileResult:
 
 
 def resolve_case_path(case_dir, rel_path):
+    if ":" in rel_path:
+        raise PathTraversalError(f"{rel_path!r} contains a colon (NTFS ADS / drive syntax not allowed)")
+    for component in rel_path.replace("\\", "/").split("/"):
+        if component in ("", ".", ".."):
+            continue
+        stripped = component.rstrip(". ")
+        if stripped == "":
+            raise PathTraversalError(f"{rel_path!r} has a component that collapses onto the uploads directory")
+        if stripped != component:
+            raise PathTraversalError(f"{rel_path!r} has a trailing dot/space component Windows would silently rewrite")
+
     base = os.path.realpath(os.path.join(case_dir, "uploads"))
     target = os.path.realpath(os.path.join(base, rel_path))
     try:

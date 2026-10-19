@@ -38,6 +38,25 @@ def test_resolve_case_path_rejects_other_drive_escape(tmp_path):
         resolve_case_path(case_dir, other_drive + "/Windows/system32")
 
 
+def test_resolve_case_path_rejects_sibling_prefix(tmp_path):
+    case_dir = _make_case(tmp_path)
+    (tmp_path / "case1" / "uploads_evil").mkdir()
+    with pytest.raises(PathTraversalError):
+        resolve_case_path(case_dir, "../uploads_evil/x.txt")
+
+
+def test_resolve_case_path_rejects_ads_stream(tmp_path):
+    case_dir = _make_case(tmp_path)
+    with pytest.raises(PathTraversalError):
+        resolve_case_path(case_dir, "note.txt::$DATA")
+
+
+def test_resolve_case_path_rejects_trailing_dot_space(tmp_path):
+    case_dir = _make_case(tmp_path)
+    with pytest.raises(PathTraversalError):
+        resolve_case_path(case_dir, "note. ")
+
+
 def test_loader_extracts_plaintext(tmp_path, minimal_config):
     case_dir = _make_case(tmp_path)
     (tmp_path / "case1" / "uploads" / "note.txt").write_text("stylometry sample text", encoding="utf-8")
