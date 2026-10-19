@@ -128,16 +128,12 @@ def main(argv=None):
         _run_search(groups, config, results, args.provider, args.limit)
 
     if args.correlate:
-        from osint.correlate import correlate
-
-        result = correlate(results, output.get("stylometry"), config)
+        result = pipeline.run_correlate(results, output.get("stylometry"), config)
         output["correlation"] = result.to_dict()
         _print_correlation(result)
 
     if args.monitor:
-        from osint.monitor import compare_to_previous
-
-        diff = compare_to_previous(config, output, args.input)
+        diff = pipeline.run_monitor(config, output, args.input)
         if diff is None:
             print("\n[monitor] no previous run found for this input.")
         else:
@@ -246,143 +242,81 @@ def _load_local_files(file_artifacts, case_dir, config, results):
 def _run_whois(url_artifacts, config, results):
     if not url_artifacts:
         return
-    from osint.correlate.normalize import canonical_domain
-    from osint.whois import WhoisClient
-
     print(f"\n[whois] RDAP lookup for {len(url_artifacts)} URL(s) ...")
-    client = WhoisClient(config)
-    by_value = {r["value"]: r for r in results}
-    for art in url_artifacts:
-        domain = canonical_domain(art.value)
-        result = client.lookup(domain)
-        entry = by_value.get(art.value, {})
-        entry["whois"] = result.to_dict()
-        if result.ok:
-            if result.registrant_org or result.registrant_email:
-                note = ""
-            elif result.redacted:
-                note = " (registrant redacted)"
-            else:
-                note = " (no registrant data)"
-            print(f"  {art.value} -> {domain}: registrar={result.registrar or '?'}{note}")
+    for outcome in pipeline.run_whois(url_artifacts, config, results):
+        if outcome["ok"]:
+            registrar = outcome["registrar"] or "?"
+            print(f"  {outcome['value']} -> {outcome['domain']}: registrar={registrar}{outcome['note']}")
         else:
-            print(f"  {art.value} -> {domain}: {result.error}")
+            print(f"  {outcome['value']} -> {outcome['domain']}: {outcome['error']}")
 
 
 def _run_certs(url_artifacts, config, results):
     if not url_artifacts:
         return
-    from osint.certs import CertClient
-    from osint.correlate.normalize import canonical_domain
-
     print(f"\n[certs] Certificate Transparency lookup for {len(url_artifacts)} URL(s) ...")
-    client = CertClient(config)
-    by_value = {r["value"]: r for r in results}
-    for art in url_artifacts:
-        domain = canonical_domain(art.value)
-        result = client.lookup(domain)
-        entry = by_value.get(art.value, {})
-        entry["certs"] = result.to_dict()
-        if result.ok:
-            print(f"  {art.value} -> {domain}: {result.cert_count} cert(s), {len(result.subdomains)} subdomain(s)")
+    for outcome in pipeline.run_certs(url_artifacts, config, results):
+        if outcome["ok"]:
+            print(f"  {outcome['value']} -> {outcome['domain']}: {outcome['cert_count']} cert(s), {outcome['subdomains']} subdomain(s)")
         else:
-            print(f"  {art.value} -> {domain}: {result.error}")
+            print(f"  {outcome['value']} -> {outcome['domain']}: {outcome['error']}")
 
 
 def _run_nlp(results, config):
-    docs = [r for r in results if r.get("text")]
-    if not docs:
+    stylometry, report = pipeline.run_nlp(results, config)
+    if report["docs"] == 0:
         print("\n[nlp] no texts available.")
         return None
-    print(f"\n[nlp] analyzing {len(docs)} text(s) ...")
-    _nlp_entities_keyphrases(docs, config)
-    return _nlp_stylometry(docs, config)
 
+    print(f"\n[nlp] analyzing {report['docs']} text(s) ...")
+    if report.get("ner_error"):
+        print(f"  [nlp] NER (spaCy) skipped: {report['ner_error']}")
+    if report.get("keyphrase_error"):
+        print(f"  [nlp] keyphrases (yake) skipped: {report['keyphrase_error']}")
+    for d in report.get("per_doc", []):
+        print(f"  {d['value']}: {d['entities']} Entities, {d['keyphrases']} Keyphrases")
 
-def _nlp_entities_keyphrases(docs, config):
-    from osint.nlp import EntityExtractor, KeyphraseExtractor, extract_regex_entities
-
-    cfg = config.get("nlp", {})
-    ner = EntityExtractor(cfg.get("spacy_model", "de_core_news_lg"))
-    kp = KeyphraseExtractor(lang=cfg.get("keyphrase_lang", "de"), top=cfg.get("keyphrase_top", 20))
-    ner_ok, kp_ok = True, True
-
-    for d in docs:
-        text = d["text"]
-        try:
-            ents = ner.extract(text, use_spacy=ner_ok)
-        except RuntimeError as e:
-            print(f"  [nlp] NER (spaCy) skipped: {e}")
-            ner_ok = False
-            ents = extract_regex_entities(text)
-        d["entities"] = [{"label": e.label, "text": e.text} for e in ents]
-
-        if kp_ok:
-            try:
-                d["keyphrases"] = [{"text": k.text, "score": round(k.score, 4)} for k in kp.extract(text)]
-            except RuntimeError as e:
-                print(f"  [nlp] keyphrases (yake) skipped: {e}")
-                kp_ok = False
-
-        print(f"  {d['value']}: {len(d.get('entities', []))} Entities, {len(d.get('keyphrases', []))} Keyphrases")
-
-
-def _nlp_stylometry(docs, config):
-    from osint.nlp import StylometryModel, basic_features
-
-    for d in docs:
-        d["style"] = {k: round(v, 5) for k, v in basic_features(d["text"]).items()}
-
-    if len(docs) < 2:
+    if report.get("stylometry_skipped"):
         print("  [nlp] stylometry comparison needs >=2 texts.")
-        return []
+    elif report.get("stylometry_error"):
+        print(f"  [nlp] stylometry (sklearn) skipped: {report['stylometry_error']}")
+    elif "stylometry_pairs" in report:
+        print("  Stylometric similarity (author fingerprint):")
+        for a, b, score in report["stylometry_pairs"][:10]:
+            print(f"    {score:.3f}  {a}  <->  {b}")
 
-    labels = [d["value"] for d in docs]
-    threshold = config.get("nlp", {}).get("stylometry_threshold", 0.0)
-    try:
-        model = StylometryModel().fit([d["text"] for d in docs], labels)
-    except RuntimeError as e:
-        print(f"  [nlp] stylometry (sklearn) skipped: {e}")
-        return None
-
-    pairs = model.most_similar_pairs(threshold=threshold)
-    print("  Stylometric similarity (author fingerprint):")
-    for a, b, score in pairs[:10]:
-        print(f"    {score:.3f}  {a}  <->  {b}")
-    return [{"a": a, "b": b, "similarity": round(score, 4)} for a, b, score in pairs]
+    return stylometry
 
 
 def _run_search(groups, config, results, provider_name, limit):
-    from osint.search import SearchError, get_provider
-    from osint.search.tools import HoleheWrapper, MaigretWrapper
+    outcomes = pipeline.run_search(groups, config, results, provider_name, limit)
 
-    by_value = {r["value"]: r for r in results}
+    if outcomes["provider_error"]:
+        print(f"\n[search] {outcomes['provider_error']}")
 
-    try:
-        provider = get_provider(config, provider_name)
-    except SearchError as e:
-        print(f"\n[search] {e}")
-        provider = None
+    if outcomes["provider_name"] is not None:
+        print(f"\n[search] web search via '{outcomes['provider_name']}' for {outcomes['query_count']} selector(s) ...")
+        for hit in outcomes["web"]:
+            print(f"  {hit['value']}: {hit['hits']} web hit(s)")
+        if "web_skipped" in outcomes:
+            print(f"  [search] provider skipped: {outcomes['web_skipped']}")
 
-    queries = []
-    for art_type, fmt in ((ArtifactType.NAME, '"{}"'), (ArtifactType.EMAIL, '"{}"'), (ArtifactType.USERNAME, "{}")):
-        for a in groups.get(art_type, []):
-            queries.append((a.value, fmt.format(a.value)))
+    for tool in outcomes["tools"]:
+        _print_tool(tool)
 
-    if provider is not None and queries:
-        print(f"\n[search] web search via '{provider.name}' for {len(queries)} selector(s) ...")
-        for value, query in queries:
-            try:
-                hits = provider.search(query, limit=limit)
-            except SearchError as e:
-                print(f"  [search] provider skipped: {e}")
-                break
-            entry = by_value.get(value, {})
-            entry.setdefault("search", []).extend(h.to_dict() for h in hits)
-            print(f"  {value}: {len(hits)} web hit(s)")
 
-    _run_tool(MaigretWrapper(), groups.get(ArtifactType.USERNAME, []), by_value)
-    _run_tool(HoleheWrapper(), groups.get(ArtifactType.EMAIL, []), by_value)
+def _print_tool(tool):
+    if tool["status"] == "noop":
+        return
+    if tool["status"] == "unavailable":
+        print(f"[search] {tool['binary']} not installed - {tool['targets']} target(s) skipped")
+        return
+    print(f"[search] {tool['name']} for {tool['targets']} target(s) ...")
+    for t in tool["per_target"]:
+        if t["error"]:
+            print(f"  {t['value']}: error - {t['error']}")
+        else:
+            print(f"  {t['value']}: {t['hits']} account/hit(s)")
 
 
 def _print_timeline(runs):
