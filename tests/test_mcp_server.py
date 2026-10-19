@@ -2,6 +2,8 @@ import importlib
 
 import pytest
 
+from mcp.server.mcpserver.exceptions import ToolError
+
 
 @pytest.fixture
 def mcp_module(tmp_path, monkeypatch):
@@ -25,8 +27,18 @@ def test_add_artifact_tool_roundtrip(mcp_module):
 def test_run_stage_tool_blocks_without_confirm(mcp_module):
     created = mcp_module.create_case("Operation Foo")
     mcp_module.add_artifact(created["case_id"], "url", "https://example.com")
-    with pytest.raises(Exception):
+    with pytest.raises(ToolError) as excinfo:
         mcp_module.run_stage(created["case_id"], "fetch", confirm=False)
+    assert "confirm=True" in str(excinfo.value)
+
+
+def test_run_stage_blocked_call_writes_audit_entry_via_tool_path(mcp_module):
+    created = mcp_module.create_case("Operation Foo")
+    mcp_module.add_artifact(created["case_id"], "url", "https://example.com")
+    with pytest.raises(ToolError):
+        mcp_module.run_stage(created["case_id"], "fetch", confirm=False)
+    log = mcp_module.get_audit_log(created["case_id"])
+    assert any(entry["action"] == "run_stage:fetch" and not entry["confirmed"] for entry in log)
 
 
 def test_get_state_tool_returns_artifacts(mcp_module):

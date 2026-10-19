@@ -3,15 +3,19 @@
 agentic/journalistic investigation workflows.
 
 Thin wrapper only - no pipeline/session logic lives here, see
-osint/session/service.py. Network- and subprocess-touching stages
-(fetch/localfiles; whois/certs/search are reserved for a future task) require
-confirm=True; set this only after the journalist has explicitly approved the
-pivot (see osint/guardrails.py).
+osint/session/service.py. Dispatchable stages that touch a network or spawn a
+subprocess (currently fetch and localfiles) require confirm=True; whois, certs
+and search are gated the same way but are reserved and not yet dispatchable.
+Set confirm=True only after the journalist has explicitly approved the pivot -
+i.e. the actual network fetch / subprocess spawn, third-party contact, and any
+cost it may incur (see osint/guardrails.py).
 """
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 from osint.config import load_config
+from osint.guardrails import BudgetExceeded, ConfirmationRequired
 from osint.report import generate as render_reports
 from osint.session import service
 
@@ -36,13 +40,18 @@ def add_artifact(case_id: str, type: str, value: str) -> dict:
 
 @mcp.tool()
 def run_stage(case_id: str, stage: str, confirm: bool = False) -> dict:
-    """Run one pipeline stage (currently: fetch, localfiles) over artifacts
-    in the case. Network- and subprocess-touching stages raise unless
-    confirm=True - only pass confirm=True after the journalist has
-    explicitly approved this pivot."""
+    """Run one pipeline stage over the case's artifacts. Dispatchable now:
+    fetch, localfiles (whois, certs, search are gated the same way but reserved
+    and not yet dispatchable). These stages perform a real network fetch or
+    spawn a subprocess, may contact third parties, and may incur cost, so they
+    raise unless confirm=True - pass confirm=True only after the journalist has
+    explicitly approved this specific pivot."""
     case_dir = service.resolve_case_dir(CASES_ROOT, case_id)
     config = load_config()
-    return service.run_stage(case_dir, config, stage, confirm=confirm)
+    try:
+        return service.run_stage(case_dir, config, stage, confirm=confirm)
+    except (ConfirmationRequired, ValueError, BudgetExceeded) as e:
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool()
@@ -54,7 +63,10 @@ def get_state(case_id: str) -> dict:
 
 @mcp.tool()
 def generate_report(case_id: str, formats: str = "md,html") -> dict:
-    """Render report files (md/html/graphml/maltego) from the case's current state."""
+    """Render report files (md/html/graphml/maltego) from the case's current state.
+    Note: the current get_state() does not merge fetched page text back into
+    artifacts, so reports render thin/incomplete at this stage - this is an
+    accepted limitation, not a signal to re-run fetch."""
     case_dir = service.resolve_case_dir(CASES_ROOT, case_id)
     config = load_config()
     state = service.get_state(case_dir)
