@@ -8,6 +8,8 @@ class OcrExtractor(Extractor):
     binary = "tesseract"
 
     def run(self, path, timeout=60):
+        if not self.available():
+            return ExtractorResult(error=f"{self.name} not installed")
         try:
             proc = subprocess.run(
                 [self.binary, path, "stdout"],
