@@ -17,8 +17,8 @@ import json
 import os
 import sys
 
+from osint import pipeline
 from osint.config import load_config
-from osint.fetcher import Fetcher
 from osint.input_parser import ArtifactType, group_by_type, parse_file
 
 # ASCII HEADER
@@ -58,6 +58,10 @@ def main(argv=None):
     parser.add_argument("--whois", action="store_true", help="RDAP WHOIS lookup for URL artifacts (registrar/registrant/dates)")
     parser.add_argument("--certs", action="store_true", help="Certificate Transparency lookup via crt.sh (subdomains, cert IDs)")
     parser.add_argument("--nlp", action="store_true", help="NER, keyphrases, stylometry on fetched texts (implies --fetch)")
+    parser.add_argument(
+        "--case-dir", metavar="DIR",
+        help="directory containing uploads/ for `file:` artifacts (default: input file's directory)",
+    )
     parser.add_argument("--search", action="store_true", help="search the web for selectors via search provider + OSINT tools (maigret/holehe)")
     parser.add_argument("--provider", metavar="NAME", help="search provider override (searxng|brave|serpapi)")
     parser.add_argument("--limit", type=int, default=10, help="max web hits per selector (default 10)")
@@ -105,7 +109,9 @@ def main(argv=None):
     output = {"artifacts": results}
 
     if args.fetch or args.nlp:
+        case_dir = args.case_dir or os.path.dirname(os.path.abspath(args.input)) or "."
         _fetch_urls(groups.get(ArtifactType.URL, []), config, results)
+        _load_local_files(groups.get(ArtifactType.FILE, []), case_dir, config, results)
 
     if args.whois:
         _run_whois(groups.get(ArtifactType.URL, []), config, results)
@@ -219,23 +225,22 @@ def _fetch_urls(url_artifacts, config, results):
     if not url_artifacts:
         return
     print(f"\nFetching {len(url_artifacts)} URL(s) ...")
-    fetcher = Fetcher(config)
-    by_value = {r["value"]: r for r in results}
-    for art in url_artifacts:
-        res = fetcher.fetch(art.value)
-        entry = by_value.get(art.value, {})
-        if res.ok and res.text:
-            entry["title"] = res.title
-            entry["text"] = res.text
-            entry["chars"] = len(res.text)
-            if res.favicon_mmh3 is not None or res.favicon_md5 is not None:
-                entry["favicon_url"] = res.favicon_url
-                entry["favicon_mmh3"] = res.favicon_mmh3
-                entry["favicon_md5"] = res.favicon_md5
-            print(f"  [ok {res.status}] {art.value} ({len(res.text)} characters)")
+    for outcome in pipeline.fetch_urls(url_artifacts, config, results):
+        if outcome["ok"]:
+            print(f"  [ok {outcome['status']}] {outcome['value']} ({outcome['chars']} characters)")
         else:
-            entry["error"] = res.error or f"HTTP {res.status}"
-            print(f"  [--] {art.value} -> {entry['error']}")
+            print(f"  [--] {outcome['value']} -> {outcome['error']}")
+
+
+def _load_local_files(file_artifacts, case_dir, config, results):
+    if not file_artifacts:
+        return
+    print(f"\nLoading {len(file_artifacts)} local file(s) from {case_dir}/uploads ...")
+    for outcome in pipeline.load_local_files(file_artifacts, case_dir, config, results):
+        if outcome["ok"]:
+            print(f"  [ok] {outcome['value']} ({outcome['chars']} characters)")
+        else:
+            print(f"  [--] {outcome['value']} -> {outcome['error']}")
 
 
 def _run_whois(url_artifacts, config, results):
