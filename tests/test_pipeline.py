@@ -138,6 +138,50 @@ def test_run_nlp_single_doc_runs_entities_and_skips_stylometry():
     assert report["stylometry_skipped"] == "needs >=2 texts"
 
 
+def test_run_nlp_partial_ner_failure_records_error_on_the_doc_where_it_happened():
+    results = [
+        {"type": "url", "value": "doc1", "raw": "", "text": "first text"},
+        {"type": "url", "value": "doc2", "raw": "", "text": "second text"},
+    ]
+
+    class _Ent:
+        label, text = "PER", "x"
+
+    class _Regex:
+        label, text = "EMAIL", "r"
+
+    def ner_side_effect(text, use_spacy=True):
+        if text == "second text":
+            raise RuntimeError("spaCy missing")
+        return [_Ent()]
+
+    with patch("osint.pipeline.EntityExtractor") as MockNer, \
+            patch("osint.pipeline.KeyphraseExtractor") as MockKp, \
+            patch("osint.pipeline.extract_regex_entities", return_value=[_Regex()]), \
+            patch("osint.pipeline.basic_features", return_value={"a": 1.0}), \
+            patch("osint.pipeline.StylometryModel") as MockStyle:
+        MockNer.return_value.extract.side_effect = ner_side_effect
+        MockKp.return_value.extract.return_value = []
+        MockStyle.return_value.fit.return_value.most_similar_pairs.return_value = []
+        stylometry, report = pipeline.run_nlp(results, {})
+
+    per_doc = report["per_doc"]
+    assert len(per_doc) == 2
+    # Doc 1 succeeded: no error attached, used spaCy entity.
+    assert per_doc[0]["value"] == "doc1"
+    assert per_doc[0]["ner_error"] is None
+    assert results[0]["entities"] == [{"label": "PER", "text": "x"}]
+    # Doc 2 failed: error is recorded ON doc2's entry (not hoisted to top),
+    # preserving the inline order the old code printed it in, and the
+    # regex fallback was used for that doc.
+    assert per_doc[1]["value"] == "doc2"
+    assert per_doc[1]["ner_error"] == "spaCy missing"
+    assert results[1]["entities"] == [{"label": "EMAIL", "text": "r"}]
+    # No top-level hoisted error field anymore.
+    assert "ner_error" not in report
+    assert stylometry == []
+
+
 def test_run_search_noop_when_no_provider_and_no_tools():
     outcomes = pipeline.run_search({}, {}, [], None, 10)
     assert outcomes["web"] == []

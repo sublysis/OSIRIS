@@ -269,11 +269,11 @@ def _run_nlp(results, config):
         return None
 
     print(f"\n[nlp] analyzing {report['docs']} text(s) ...")
-    if report.get("ner_error"):
-        print(f"  [nlp] NER (spaCy) skipped: {report['ner_error']}")
-    if report.get("keyphrase_error"):
-        print(f"  [nlp] keyphrases (yake) skipped: {report['keyphrase_error']}")
     for d in report.get("per_doc", []):
+        if d.get("ner_error"):
+            print(f"  [nlp] NER (spaCy) skipped: {d['ner_error']}")
+        if d.get("keyphrase_error"):
+            print(f"  [nlp] keyphrases (yake) skipped: {d['keyphrase_error']}")
         print(f"  {d['value']}: {d['entities']} Entities, {d['keyphrases']} Keyphrases")
 
     if report.get("stylometry_skipped"):
@@ -350,23 +350,6 @@ def _print_correlation(result):
     for link in result.links[:10]:
         kinds = ", ".join(e.kind for e in link.evidence)
         print(f"  {link.score:.2f}  {link.a} <-> {link.b}  ({kinds})")
-
-
-def _run_tool(tool, artifacts, by_value):
-    if not artifacts:
-        return
-    if not tool.available():
-        print(f"[search] {tool.binary} not installed - {len(artifacts)} target(s) skipped")
-        return
-    print(f"[search] {tool.name} for {len(artifacts)} target(s) ...")
-    for a in artifacts:
-        res = tool.run(a.value)
-        entry = by_value.get(a.value, {})
-        entry.setdefault("accounts", []).extend(res.hits)
-        if res.error:
-            print(f"  {a.value}: error - {res.error}")
-        else:
-            print(f"  {a.value}: {len(res.hits)} account/hit(s)")
 
 
 if __name__ == "__main__":

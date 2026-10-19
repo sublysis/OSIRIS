@@ -133,12 +133,12 @@ def _nlp_entities_keyphrases(docs, config):
     ner = EntityExtractor(cfg.get("spacy_model", "de_core_news_lg"))
     kp = KeyphraseExtractor(lang=cfg.get("keyphrase_lang", "de"), top=cfg.get("keyphrase_top", 20))
     ner_ok, kp_ok = True, True
-    ner_error = None
-    kp_error = None
     per_doc = []
 
     for d in docs:
         text = d["text"]
+        ner_error = None
+        kp_error = None
         try:
             ents = ner.extract(text, use_spacy=ner_ok)
         except RuntimeError as e:
@@ -158,9 +158,11 @@ def _nlp_entities_keyphrases(docs, config):
             "value": d["value"],
             "entities": len(d.get("entities", [])),
             "keyphrases": len(d.get("keyphrases", [])),
+            "ner_error": ner_error,
+            "keyphrase_error": kp_error,
         })
 
-    return {"ner_error": ner_error, "keyphrase_error": kp_error, "per_doc": per_doc}
+    return {"per_doc": per_doc}
 
 
 def _nlp_stylometry(docs, config):
