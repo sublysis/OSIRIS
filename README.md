@@ -1,5 +1,3 @@
-![[banner.webp]]
-
 <p align="center">
   <img alt="banner.webp" src="https://github.com/sublysis/OSIRIS/blob/7cbe086e5e6ee26f4cf5c7c4deb729b4f633d636/banner.webp?raw=true" data-hpc="true" containertiming="hpc" style="max-width:100%">
 </p>
