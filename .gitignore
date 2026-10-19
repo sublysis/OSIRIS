@@ -223,6 +223,7 @@ _dev/
 config.json
 /temp/*
 /documents/*
+/cases/
 composer.json
 composer.lock
 build.json

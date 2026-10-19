@@ -7,6 +7,7 @@ VENV="$ROOT/.venv"
 SEARXNG_DIR="$ROOT/searxng"
 
 WITH_SENTIMENT=0
+WITH_MCP=0
 INSTALL_SEARXNG=1
 INSTALL_TOOLS=1
 SEARXNG_PORT=8080
@@ -16,6 +17,7 @@ usage() {
 Usage: bash scripts/install.sh [OPTIONS]
 
   --with-sentiment   also install sentiment deps (transformers, torch)
+  --with-mcp         also install MCP server deps (requirements-mcp.txt)
   --no-searxng       skip SearXNG setup
   --no-tools         don't install maigret/holehe
   --port N           SearXNG port (default 8080, bound to 127.0.0.1 only)
@@ -26,6 +28,7 @@ EOF
 while [ $# -gt 0 ]; do
   case "$1" in
     --with-sentiment) WITH_SENTIMENT=1 ;;
+    --with-mcp) WITH_MCP=1 ;;
     --no-searxng) INSTALL_SEARXNG=0 ;;
     --no-tools) INSTALL_TOOLS=0 ;;
     --port) shift; SEARXNG_PORT="$1" ;;
@@ -47,7 +50,7 @@ fi
 
 log "Installing system packages"
 $SUDO apt-get update -y
-$SUDO apt-get install -y python3 python3-venv python3-pip git curl openssl build-essential
+$SUDO apt-get install -y python3 python3-venv python3-pip git curl openssl build-essential poppler-utils tesseract-ocr
 
 log "Creating Python venv: $VENV"
 python3 -m venv "$VENV"
@@ -72,6 +75,11 @@ python -m spacy download "$SPACY_MODEL"
 if [ "$WITH_SENTIMENT" -eq 1 ]; then
   log "Sentiment dependencies (transformers, torch) - this takes a while"
   pip install -r "$ROOT/requirements-sentiment.txt"
+fi
+
+if [ "$WITH_MCP" -eq 1 ]; then
+  log "MCP server dependencies"
+  pip install -r "$ROOT/requirements-mcp.txt"
 fi
 
 if [ "$INSTALL_TOOLS" -eq 1 ]; then

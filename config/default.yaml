@@ -55,3 +55,13 @@ correlate:
 report:
   db_path: "data/osint.sqlite"
   output_dir: "reports"
+
+localfiles:
+  max_bytes: 20000000
+  timeout: 60
+
+cases:
+  root_dir: "cases"
+
+guardrails:
+  max_paid_search_calls_per_case: 20
