@@ -8,6 +8,7 @@ class ArtifactType(str, Enum):
     EMAIL = "email"
     USERNAME = "username"
     NAME = "name"
+    FILE = "file"
     UNKNOWN = "unknown"
 
 
@@ -22,7 +23,7 @@ class Artifact:
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 URL_SCHEME_RE = re.compile(r"^https?://", re.IGNORECASE)
 DOMAIN_RE = re.compile(r"^(?=.{1,253}$)([a-z0-9-]+\.)+[a-z]{2,}(/\S*)?$", re.IGNORECASE)
-EXPLICIT_RE = re.compile(r"^(url|email|username|name)\s*:\s*(.+)$", re.IGNORECASE)
+EXPLICIT_RE = re.compile(r"^(url|email|username|name|file)\s*:\s*(.+)$", re.IGNORECASE)
 
 _TYPES = {t.value: t for t in ArtifactType}
 
