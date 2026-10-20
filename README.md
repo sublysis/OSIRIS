@@ -10,19 +10,18 @@
 
 OSINT Stylometric Search classifies artifacts (URL, email, username, name) from a txt list, fetches text from URLs, and correlates authorship/patterns across the web. The core is **selector search** (hard re-identification) and **stylometry** (writing-style fingerprint). Sentiment is optional enrichment.
 
-## Quick Overview
+## Quick Overview ✔️ 
 
-✔️ Use Cases: Research, Security Auditing, Investigative Journalism, OSINT work
-✔️ Report formats: JSON, HTML, MD, Maltego, Graphml
-✔️ Stylometric pattern recognition
-✔️ Works with SerpAPI, Brave or with local SearXNG in Docker for security
-✔️ MCP Server for agentic workflows
-✔️ Permission-based mode for compliance
-✔️ Scans on per-case-basis
-✔️ Audit Trails & Chain of Custody
-✔️ API Keys and settings via .yaml files for more convenience
-✔️ Utilizes Holehe & Maigret for additional OSINT capabilities (usernames, emails)
-
+- Use Cases: Research, Security Auditing, Investigative Journalism, OSINT work
+- Report formats: JSON, HTML, MD, Maltego, Graphml
+- Stylometric pattern recognition
+- Works with SerpAPI, Brave or with local SearXNG in Docker for security
+- MCP Server for agentic workflows
+- Permission-based mode for compliance
+- Scans on per-case-basis
+- Audit Trails & Chain of Custody
+- API Keys and settings via .yaml files for more convenience
+- Utilizes Holehe & Maigret for additional OSINT capabilities (usernames, emails)
 
 ---
 # 1. Installation
