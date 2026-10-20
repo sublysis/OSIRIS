@@ -1,5 +1,6 @@
 import time
 
+# Fail open -> Warning for missing requirements
 try:
     import requests
 except ImportError:
@@ -10,8 +11,10 @@ from .model import CertResult
 
 def _looks_like_hostname(value):
     v = (value or "").strip().lower()
+    
     if not v or "@" in v or " " in v or "." not in v:
         return False
+
     return True
 
 

@@ -1,8 +1,7 @@
 from .base import SearchError, SearchHit, SearchProvider, requests_or_raise
 
-
 class BraveProvider(SearchProvider):
-    """Brave Search API (free tier possible). Key from config/secrets.yaml."""
+    """Brave Search API (free plan possible). Key from config/secrets.yaml."""
 
     name = "brave"
     ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
@@ -12,10 +11,13 @@ class BraveProvider(SearchProvider):
         self.api_key = self.config.get("api_key")
         self.timeout = self.config.get("timeout", 15)
 
+
     def search(self, query, limit=20):
         if not self.api_key:
             raise SearchError("Brave API key missing (config/secrets.yaml -> search.providers.brave.api_key)")
+
         requests = requests_or_raise()
+
         try:
             resp = requests.get(
                 self.ENDPOINT,
@@ -40,4 +42,5 @@ class BraveProvider(SearchProvider):
                     source="brave",
                 )
             )
+
         return hits

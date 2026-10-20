@@ -25,7 +25,7 @@ class SearxngProvider(SearchProvider):
                 f"{self.base_url}/search",
                 params=params,
                 timeout=self.timeout,
-                headers={"User-Agent": "osint-tool/0.1"},
+                headers={"User-Agent": "OSIRIS osint-tool/0.2"},
             )
             resp.raise_for_status()
             data = resp.json()
