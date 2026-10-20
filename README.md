@@ -6,39 +6,131 @@
 
 > *Last updated: 10/2026 | Author: Laurent Schueller | For authorized penetration testing, lab / training, and auditing use only.*
 
-##### OSINT Stylometric Search with modular components and ML, enabled for agentic work
+##### OSINT Stylometric Search with modular components and ML
 
-OSIRIS classifies artifacts (URL, email, username, name) from a txt list, fetches text from URLs, and correlates authorship/patterns across the web. The core is **selector search** (hard re-identification) and **stylometry** (writing-style fingerprint). Sentiment is optional enrichment.
+OSINT Stylometric Search classifies artifacts (URL, email, username, name) from a txt list, fetches text from URLs, and correlates authorship/patterns across the web. The core is **selector search** (hard re-identification) and **stylometry** (writing-style fingerprint). Sentiment is optional enrichment.
 
-## Use Cases
+## Quick Overview
 
-- Research
-- Security Auditing
-- Investigative Journalism
-- OSINT work
+✔️ Use Cases: Research, Security Auditing, Investigative Journalism, OSINT work
+✔️ Report formats: JSON, HTML, MD, Maltego, Graphml
+✔️ Stylometric pattern recognition
+✔️ Works with SerpAPI, Brave or with local SearXNG in Docker for security
+✔️ MCP Server for agentic workflows
+✔️ Permission-based mode for compliance
+✔️ Scans on per-case-basis
+✔️ Audit Trails & Chain of Custody
+✔️ API Keys and settings via .yaml files for more convenience
+✔️ Utilizes Holehe & Maigret for additional OSINT capabilities (usernames, emails)
 
-## Pipeline (modular)
 
-```
-input_parser/  ->  fetcher/  ->  nlp/  ->  search/  ->  whois/  ->  certs/  ->  correlate/  ->  report/
-```
+---
+# 1. Installation
 
-Status: **full pipeline runnable**, including the optional WHOIS/RDAP and Certificate Transparency stages. Full NLP/search quality only after installing the optional deps (see Setup) resp. with a running SearXNG and installed OSINT tools.
-
-## Setup (local / venv)
+On a fresh Debian/Ubuntu server or VM:
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate # Win
-pip install -r requirements.txt
+git clone https://github.com/sublysis/OSIRIS && cd OSIRIS
+
+# Installing deps + spaCy model + maigret/holehe + SearXNG (Docker)
+# optional: --with-sentiment (torch), --no-searxng, --no-tools, --port N
+bash scripts/install.sh
 ```
 
-NLP core (NER/keyphrases/stylometry): `pip install -r requirements-nlp.txt` and `python -m spacy download <model>`, where `<model>` matches `nlp.spacy_model` in `config/default.yaml` (default `en_core_web_md`; see the [spaCy models list](https://github.com/explosion/spacy-models) for alternatives, e.g. `de_core_news_lg` for German). Changing `nlp.spacy_model` in the config does **not** install/download the model. It must be pulled separately in every environment that runs `--nlp` (`scripts/install.sh`
-handles this automatically, see Deployment).
+The script creates a `.venv/`, installs everything, and starts **SearXNG** as a Docker container bound to `127.0.0.1:8080` (not publicly reachable), with the JSON API enabled and the rate limiter disabled. Then:
 
-Optional sentiment (large, torch): `pip install -r requirements-sentiment.txt`. `--whois` and `--certs` need no extra dependency (both use `requests`, already a core requirement). Favicon hashing (part of `--fetch`) uses `mmh3` (Shodan-compatible hash) if installed, also in core requirements, but falls back to md5-only hashing if it's missing.
+```bash
+source .venv/bin/activate
+python cli.py your_artifacts.txt --nlp --search --correlate --save --report
+```
 
-**Automatic on a Debian/Ubuntu server (incl. SearXNG):** `bash scripts/install.sh` (see Deployment).
+Security: SearXNG stays local (only the VPS itself can reach it). The generated `server.secret_key` lives in `searxng/settings.yml` (gitignored).
+
+## Configuration files
+
+Change your configurations in `config/` and edit the files
+- default.yaml 
+- secrets.yaml
+ 
+Create a copy "secrets.yaml" of the example file "secrets.example.yaml" and change it to your need:
+
+```shell
+cp secrets.example.yaml secrets.yaml
+```
+
+`config/default.yaml` controls the fetcher (user agent, rate limit, robots.txt, favicon hashing), WHOIS (RDAP endpoint, timeout, delay), Certificate Transparency (crt.sh endpoint, timeout, delay, result cap), search providers, and reports. API keys belong in `config/secrets.yaml` (gitignored). The default web search source is **self-hosted SearXNG**; paid APIs (Brave, SerpAPI) are optionally switchable.
+
+---
+# 2. Start the Docker Container for SearXNG
+
+(only reachable locally, not public)
+
+```shell
+sudo docker rm -f searxng >/dev/null 2>&1 || true
+sudo docker run -d --name searxng --restart unless-stopped \
+  -p "127.0.0.1:8080:8080" \
+  -v "$SEARXNG_DIR:/etc/searxng" \
+  searxng/searxng:latest
+```
+
+**Then briefly test whether the JSON API responds:**
+
+```bash
+curl -s "http://127.0.0.1:8080/search?q=test&format=json" | head -c 200
+```
+
+
+**Control container**
+
+```bash
+docker stop searxng    # stop
+docker start searxng   # start again later
+```
+
+If the first request is still empty/erroneous: SearXNG needs a few seconds to start up on the very first launch (check with docker logs searxng). After that, --search in cli.py should run without "Connection refused".
+
+Security note: -p "127.0.0.1:8080:8080" deliberately binds the container to localhost only, not publicly reachable — please don't change it to 0.0.0.0 unless you intentionally want to expose SearXNG.
+
+---
+# 3. Build your first artifact file
+
+Create a txt file with collected artifacts about the subject of investigation.
+
+There is no crawler, you curate the artifact list yourself, one artifact per line. `--fetch`/`--nlp`/`--whois`/`--certs` only work on artifacts you already listed. They don't discover new links, emails, or usernames on the page (though `--certs` does surface subdomains from CT logs as *data*, not
+as new artifacts to further process).
+
+Examples (see `examples/artifacts.txt`):
+
+```
+# comments and blank lines are ignored
+https://example.com
+example.org/blog
+max.mustermann@example.com
+@nightowl_88
+nightowl_88
+Max Mustermann
+"Erika Fake-Name"
+name: J. Doe
+username: gh0st.writer
+```
+
+Only `url` gets its page content fetched (and optionally WHOIS-/certs-looked-up). `email`, `username`, and `name` are treated as **selectors**, they're looked up (web search + maigret/holehe), not fetched as pages. `--correlate` then looks for shared sources, entities, registrants, favicons, certificates, or writing style linking different selectors/URLs together.
+
+#### Artifact Types
+
+Each line in the input file is classified into one of these types. Detection is automatic, but you can force a type with an explicit `type: value` prefix (case-insensitive). Quotes around the value (`"..."` or `'...'`) are stripped.
+
+| Type       | Explicit prefix | Auto-detected when                                                                                                                 | Normalization                              | Used for                                                                                                                                                                                                                                                                        |
+| ---------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`      | `url:`          | starts with `http://`/`https://`, or looks like a bare domain (`example.com`, `example.org/blog`)                                  | `https://` is prepended if no scheme given | `--fetch` downloads the page text and hashes its favicon (robots.txt + rate-limit respected); `--whois` looks up the domain's RDAP registrar/registrant/dates; `--certs` looks up crt.sh subdomains/certificate IDs; `--nlp` runs NER/keyphrases/stylometry on the fetched text |
+| `email`    | `email:`        | matches `local@domain.tld`                                                                                                         | lowercased                                 | `--search` runs holehe (checks which services the address is registered on) and web search                                                                                                                                                                                      |
+| `username` | `username:`     | no spaces, not an email/URL/domain (also matches a leading `@handle`)                                                              | leading `@` stripped                       | `--search` runs maigret (checks the handle across social platforms) and web search                                                                                                                                                                                              |
+| `name`     | `name:`         | contains a space and isn't classified as URL/email                                                                                 | left as-is                                 | `--search` runs a web search (quoted exact-match query)                                                                                                                                                                                                                         |
+| `file`     | `file:`         | never auto-detected (prefix-only); a bare filename is ambiguous against the domain/username heuristics                             | none (relative path kept as-is)            | a local document (uploaded into a case's `uploads/` directory) whose text is extracted by the `localfiles` stage - run via `cli.py --fetch` (`--case-dir` points at the `uploads/` parent) or incrementally via the MCP session layer; see ["MCP / Agentic Session Use"](#mcp--agentic-session-use)                                                                 |
+| `unknown`  | --              | fallback type in the enum; not currently reachable, since `_detect()` always falls back to `username` for anything without a space | --                                         | ignored by the pipeline                                                                                                                                                                                                                                                         |
+
+---
+# 4. Start first run
 
 ## Usage
 
@@ -72,81 +164,84 @@ python cli.py examples/artifacts.txt --nlp --search --whois --certs --correlate 
 | `--out-dir DIR` | target directory for reports |
 | `--json FILE` | full result as JSON |
 | `--from-json FILE` | regenerate `--report`/`--json` from a previously written `--json` file, no network calls (see below); replaces `input`, skips all other pipeline flags |
-| `--case-dir DIR` | directory containing `uploads/` for `file:` artifacts (default: input file's own directory) |
-| `--config FILE` | additional config file, merged over `config/default.yaml` |
 
 Input format: one artifact per line. Type is auto-detected, but can be forced with a prefix (`name:`, `username:`, `url:`, `email:`). `#` lines and blank lines are ignored.
 
-## Artifact Types
+---
+# 5. Re-run later for comparison - Monitoring / Timeline
 
-Each line in the input file is classified into one of these types. Detection is automatic, but you can force a type with an explicit `type: value` prefix (case-insensitive). Quotes around the value (`"..."` or `'...'`) are stripped.
-
-| Type       | Explicit prefix | Auto-detected when                                                                                                                 | Normalization                              | Used for                                                                                                                                                                                                                                                                        |
-| ---------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `url`      | `url:`          | starts with `http://`/`https://`, or looks like a bare domain (`example.com`, `example.org/blog`)                                  | `https://` is prepended if no scheme given | `--fetch` downloads the page text and hashes its favicon (robots.txt + rate-limit respected); `--whois` looks up the domain's RDAP registrar/registrant/dates; `--certs` looks up crt.sh subdomains/certificate IDs; `--nlp` runs NER/keyphrases/stylometry on the fetched text |
-| `email`    | `email:`        | matches `local@domain.tld`                                                                                                         | lowercased                                 | `--search` runs holehe (checks which services the address is registered on) and web search                                                                                                                                                                                      |
-| `username` | `username:`     | no spaces, not an email/URL/domain (also matches a leading `@handle`)                                                              | leading `@` stripped                       | `--search` runs maigret (checks the handle across social platforms) and web search                                                                                                                                                                                              |
-| `name`     | `name:`         | contains a space and isn't classified as URL/email                                                                                 | left as-is                                 | `--search` runs a web search (quoted exact-match query)                                                                                                                                                                                                                         |
-| `file`     | `file:`         | never auto-detected (prefix-only); a bare filename is ambiguous against the domain/username heuristics                             | none (relative path kept as-is)            | a local document (uploaded into a case's `uploads/` directory) whose text is extracted by the `localfiles` stage - run via `cli.py --fetch` (`--case-dir` points at the `uploads/` parent) or incrementally via the MCP session layer; see ["MCP / Agentic Session Use"](#mcp--agentic-session-use)                                                                 |
-| `unknown`  | --              | fallback type in the enum; not currently reachable, since `_detect()` always falls back to `username` for anything without a space | --                                         | ignored by the pipeline                                                                                                                                                                                                                                                         |
-
-Examples (see `examples/artifacts.txt`):
-
-```
-# comments and blank lines are ignored
-https://example.com
-example.org/blog
-max.mustermann@example.com
-@nightowl_88
-nightowl_88
-Max Mustermann
-"Erika Fake-Name"
-name: J. Doe
-username: gh0st.writer
-```
-
-Only `url` gets its page content fetched (and optionally WHOIS-/certs-looked-up). `email`, `username`, and `name` are treated as **selectors**, they're looked up (web search + maigret/holehe), not fetched as pages. `--correlate` then looks for shared sources, entities, registrants, favicons, certificates, or writing style linking different selectors/URLs together.
-
-## Example Workflow
-
-There is no crawler, you curate the artifact list yourself, one artifact per line. `--fetch`/`--nlp`/`--whois`/`--certs` only work on artifacts you already listed; they don't discover new links, emails, or usernames on the page (though `--certs` does surface subdomains from CT logs as *data*, not
-as new artifacts to further process).
-
-1. Create an input file with the artifacts you want to investigate:
+`--save` stores every run in SQLite. `--monitor` compares the current run with the last stored run for **the same input file** and shows new/gone targets and links. `--history` lists past runs.
 
 ```bash
-cat > targets.txt <<'EOF'
-url:https://example.com
-url:https://example.com/about
-email:info@example.com
-username:examplecorp
-name:Jane Doe
-EOF
+# Save the first run:
+python cli.py artifacts.txt --nlp --search --correlate --save
+
+# Re-run later - what's new?
+python cli.py artifacts.txt --nlp --search --correlate --monitor --save
+
+# View history:
+python cli.py artifacts.txt --history
 ```
 
-2. Run the full pipeline: fetch page text + favicon, look up WHOIS and Certificate Transparency data, run NLP (NER/keyphrases/stylometry), search the selectors on the web + maigret/holehe, correlate shared sources/style/registrants/favicons/certs, persist the run, and write reports (including a graph export for Gephi/Maltego):
+---
+# 6. Interpreting Scores
+
+The `--correlate` link score (e.g. `0.80`) and the `--nlp` stylometric similarity score are **not** statistical measures like a correlation coefficient or standard deviation, they're a heuristic weighted evidence tally and a cosine-similarity metric, respectively. See [`docs/interpreting-scores.md`](docs/interpreting-scores.md) for a full explanation and a checklist for reading results responsibly before drawing
+conclusions.
+
+---
+# 7. Reports
+
+If the `--report` flag is set, at least a .md and a .html report file are generated in the dir reports/. By default, only md and html files are generated. For Maltego see below.
+
+
+### Graph Export (Gephi / Maltego)
+
+`--report graphml` and `--report maltego` export the `--correlate` link network (selectors as nodes, links as edges with `score`/`evidence` attributes), opt-in, not part of the default `--report` (`md,html`). Targets found only via `--search` (web hits, accounts) aren't graphed as separate nodes; see "Shared Targets" in the md/html report for those.
 
 ```bash
-python cli.py targets.txt --fetch --whois --certs --nlp --search --correlate --save --report md,html,graphml --json out.json
+python cli.py targets.txt --nlp --search --correlate --report md,html,graphml,maltego
 ```
 
-3. Re-run later against the same file to see what changed:
+- **`.graphml`**: open directly in [Gephi](https://gephi.org) or yEd.
+- **`.csv`** (from the `maltego` format): a generic `source, source_type, target, target_type, score, evidence` edge list. Maltego has no single fixed CSV schema, use its **Import Graph from Table** wizard and map `source`/ `target` to the two entity columns.
+
+
+### Extracting a report after the fact
+
+Forgot `graphml`/`maltego` (or any other format) when you ran `--report`, and don't want to re-run `--whois`/`--certs`/`--search` again? If that run also used `--json`, replay it, no network calls, near-instant:
 
 ```bash
-python cli.py targets.txt --nlp --search --correlate --monitor --save
+python cli.py --from-json out.json --report maltego,graphml --out-dir reports
 ```
 
-4. Inspect all stored runs for this input file:
+`--from-json` replaces the `input` argument entirely and skips `--fetch`/`--whois`/`--certs`/`--nlp`/`--search`/`--correlate`/`--monitor`/ `--save`/`--history` if passed alongside it (with a warning), it only re-renders `--report`/`--json` from the artifacts/correlation data already in the file. If the original run didn't use `--json`, there's currently no way to extract a report from a `--save`d SQLite run without re-running the pipeline.
+
+---
+# Behind the Curtain
+
+**To understand, how OSIRIS works, find below the technical specificities**
+
+### Pipeline (modular)
+
+```
+input_parser/  ->  fetcher/  ->  nlp/  ->  search/  ->  whois/  ->  certs/  ->  correlate/  ->  report/
+```
+
+Status: **full pipeline runnable**, including the optional WHOIS/RDAP and Certificate Transparency stages. Full NLP/search quality only after installing the optional deps (see Setup) resp. with a running SearXNG and installed OSINT tools.
+
+### Setup (local / venv)
 
 ```bash
-python cli.py targets.txt --history
+python -m venv .venv
+.venv\Scripts\activate # Win
+pip install -r requirements.txt
 ```
 
-If you want automatic artifact discovery (e.g. crawling `example.com` for sitemap links, emails, or social handles), that's a separate feature, not part of `cli.py` today.
+NLP core (NER/keyphrases/stylometry): `pip install -r requirements-nlp.txt` and `python -m spacy download <model>`, where `<model>` matches `nlp.spacy_model` in `config/default.yaml` (default `en_core_web_md`; see the [spaCy models list](https://github.com/explosion/spacy-models) for alternatives, e.g. `de_core_news_lg` for German). Changing `nlp.spacy_model` in the config does **not** install/download the model. It must be pulled separately in every environment that runs `--nlp` (`scripts/install.sh`
+handles this automatically, see Deployment).
 
-## Configuration
-
-`config/default.yaml` controls the fetcher (user agent, rate limit, robots.txt, favicon hashing), WHOIS (RDAP endpoint, timeout, delay), Certificate Transparency (crt.sh endpoint, timeout, delay, result cap), search providers, and reports. API keys belong in `config/secrets.yaml` (gitignored). The default web search source is **self-hosted SearXNG**; paid APIs (Brave, SerpAPI) are optionally switchable.
+Optional sentiment (large, torch): `pip install -r requirements-sentiment.txt`. `--whois` and `--certs` need no extra dependency (both use `requests`, already a core requirement). Favicon hashing (part of `--fetch`) uses `mmh3` (Shodan-compatible hash) if installed, also in core requirements, but falls back to md5-only hashing if it's missing.
 
 ### Fetcher / robots.txt
 
@@ -196,21 +291,7 @@ If the configured model isn't installed, `--nlp` fails with a clear `RuntimeErro
 - **`certs.min_delay`** (default 2.0s) and **`certs.timeout`** (default 30s, deliberately generous given crt.sh's latency).
 - **`certs.max_results`** (default 200): caps how many subdomains/certificate IDs are stored per domain, since popular domains can be logged under thousands of certificates.
 
-## Monitoring / Timeline
-
-`--save` stores every run in SQLite. `--monitor` compares the current run with the last stored run for **the same input file** and shows new/gone targets and links. `--history` lists past runs.
-
-```bash
-# Save the first run:
-python cli.py artifacts.txt --nlp --search --correlate --save
-
-# Re-run later - what's new?
-python cli.py artifacts.txt --nlp --search --correlate --monitor --save
-
-# View history:
-python cli.py artifacts.txt --history
-```
-
+---
 ## MCP / Agentic Session Use
 
 Alongside the classic one-shot `cli.py` (which runs the whole pipeline in a single batch over a static artifact list), the repo ships an **MCP server** (`mcp_server.py`) that exposes the pipeline as tools for an AI agent (Claude Desktop, Claude Code, or any MCP client) to drive **incrementally**: create a case, add one artifact at a time, run one stage at a time, inspect the state, repeat. This suits an interactive investigation where the next step depends on what the last step turned up, rather than a fully-specified batch run.
@@ -260,51 +341,8 @@ To use it from an MCP client, add it as an MCP server that runs `python mcp_serv
 
 > **Note for readers following MCP SDK examples:** this server targets the **mcp 2.x** SDK (`requirements-mcp.txt` pins `mcp>=2,<3`) and uses the 2.x `MCPServer` API (`from mcp.server.mcpserver import MCPServer`). Many SDK examples online still show the older 1.x `FastMCP` API - that's a real version difference, not a typo; don't mix the two.
 
-## Interpreting Scores
 
-The `--correlate` link score (e.g. `0.80`) and the `--nlp` stylometric similarity score are **not** statistical measures like a correlation coefficient or standard deviation, they're a heuristic weighted evidence tally and a cosine-similarity metric, respectively. See [`docs/interpreting-scores.md`](docs/interpreting-scores.md) for a full explanation and a checklist for reading results responsibly before drawing
-conclusions.
-
-## Graph Export (Gephi / Maltego)
-
-`--report graphml` and `--report maltego` export the `--correlate` link network (selectors as nodes, links as edges with `score`/`evidence` attributes), opt-in, not part of the default `--report` (`md,html`). Targets found only via `--search` (web hits, accounts) aren't graphed as separate nodes; see "Shared Targets" in the md/html report for those.
-
-```bash
-python cli.py targets.txt --nlp --search --correlate --report md,html,graphml,maltego
-```
-
-- **`.graphml`**: open directly in [Gephi](https://gephi.org) or yEd.
-- **`.csv`** (from the `maltego` format): a generic `source, source_type, target, target_type, score, evidence` edge list. Maltego has no single fixed CSV schema, use its **Import Graph from Table** wizard and map `source`/ `target` to the two entity columns.
-
-### Extracting a report after the fact
-
-Forgot `graphml`/`maltego` (or any other format) when you ran `--report`, and don't want to re-run `--whois`/`--certs`/`--search` again? If that run also used `--json`, replay it, no network calls, near-instant:
-
-```bash
-python cli.py --from-json out.json --report maltego,graphml --out-dir reports
-```
-
-`--from-json` replaces the `input` argument entirely and skips `--fetch`/`--whois`/`--certs`/`--nlp`/`--search`/`--correlate`/`--monitor`/ `--save`/`--history` if passed alongside it (with a warning), it only re-renders `--report`/`--json` from the artifacts/correlation data already in the file. If the original run didn't use `--json`, there's currently no way to extract a report from a `--save`d SQLite run without re-running the pipeline.
-
-## Deployment (Vultr VPS)
-
-On a fresh Debian/Ubuntu server:
-
-```bash
-git clone <repo> && cd OSIRIS
-bash scripts/install.sh            # deps + spaCy model + maigret/holehe + SearXNG (Docker)
-# optional: --with-sentiment (torch), --with-mcp (MCP server deps), --no-searxng, --no-tools, --port N
-```
-
-The script creates a `.venv/`, installs everything, and starts **SearXNG** as a Docker container bound to `127.0.0.1:8080` (not publicly reachable), with the JSON API enabled and the rate limiter disabled. Then:
-
-```bash
-source .venv/bin/activate
-python cli.py your_artifacts.txt --nlp --search --correlate --save --report
-```
-
-Security: SearXNG stays local (only the VPS itself can reach it). The generated `server.secret_key` lives in `searxng/settings.yml` (gitignored).
-
+---
 ## Legal
 
 Observe EU/GDPR requirements once real people are being profiled/correlated: purpose limitation, data minimization, traceability. For legitimate purposes only (authorized security research, journalism, brand/threat monitoring).
