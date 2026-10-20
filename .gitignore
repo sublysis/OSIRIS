@@ -227,8 +227,9 @@ config.json
 composer.json
 composer.lock
 build.json
-
 *.md
+
 !Readme.md
+!docs/*.md
 
 /.worktrees/
