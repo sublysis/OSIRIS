@@ -1,5 +1,7 @@
-# Optional sentiment module (downstream, only if needed).
+# Optional sentiment module (downstream, only if needed), CPU-only.
 # Large because of torch - only install if sentiment is actually needed.
+# For GPU/CUDA inference instead, use requirements-sentiment-gpu.txt.
+--extra-index-url https://download.pytorch.org/whl/cpu
 transformers>=4.40
 torch>=2.2
 # Model: oliverguhr/german-sentiment-bert (lazy download on first call)

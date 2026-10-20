@@ -45,7 +45,7 @@ class FetchResult:
 class Fetcher:
     def __init__(self, config=None):
         cfg = (config or {}).get("fetcher", {})
-        self.user_agent = cfg.get("user_agent", "osint-tool/0.1")
+        self.user_agent = cfg.get("user_agent", "OSIRIS osint-tool/0.2")
         self.timeout = cfg.get("timeout", 20)
         self.min_delay = cfg.get("min_delay_per_domain", 2.0)
         self.respect_robots = cfg.get("respect_robots", True)

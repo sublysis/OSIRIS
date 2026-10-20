@@ -7,6 +7,7 @@ VENV="$ROOT/.venv"
 SEARXNG_DIR="$ROOT/searxng"
 
 WITH_SENTIMENT=0
+WITH_SENTIMENT_GPU=0
 WITH_MCP=0
 INSTALL_SEARXNG=1
 INSTALL_TOOLS=1
@@ -16,8 +17,9 @@ usage() {
   cat <<'EOF'
 Usage: bash scripts/install.sh [OPTIONS]
 
-  --with-sentiment   also install sentiment deps (transformers, torch)
-  --with-mcp         also install MCP server deps (requirements-mcp.txt)
+  --with-sentiment     also install sentiment deps, CPU-only (transformers, torch)
+  --with-sentiment-gpu same as --with-sentiment, but with CUDA/GPU torch (several GB)
+  --with-mcp           also install MCP server deps (requirements-mcp.txt)
   --no-searxng       skip SearXNG setup
   --no-tools         don't install maigret/holehe
   --port N           SearXNG port (default 8080, bound to 127.0.0.1 only)
@@ -28,6 +30,7 @@ EOF
 while [ $# -gt 0 ]; do
   case "$1" in
     --with-sentiment) WITH_SENTIMENT=1 ;;
+    --with-sentiment-gpu) WITH_SENTIMENT_GPU=1 ;;
     --with-mcp) WITH_MCP=1 ;;
     --no-searxng) INSTALL_SEARXNG=0 ;;
     --no-tools) INSTALL_TOOLS=0 ;;
@@ -72,8 +75,11 @@ fi
 log "Downloading spaCy model: $SPACY_MODEL (from config/default.yaml nlp.spacy_model)"
 python -m spacy download "$SPACY_MODEL"
 
-if [ "$WITH_SENTIMENT" -eq 1 ]; then
-  log "Sentiment dependencies (transformers, torch) - this takes a while"
+if [ "$WITH_SENTIMENT_GPU" -eq 1 ]; then
+  log "Sentiment dependencies (transformers, torch+CUDA) - this takes a while"
+  pip install -r "$ROOT/requirements-sentiment-gpu.txt"
+elif [ "$WITH_SENTIMENT" -eq 1 ]; then
+  log "Sentiment dependencies (transformers, torch, CPU-only) - this takes a while"
   pip install -r "$ROOT/requirements-sentiment.txt"
 fi
 

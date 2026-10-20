@@ -6,9 +6,9 @@
 
 > *Last updated: 10/2026 | Author: Laurent Schueller | For authorized penetration testing, lab / training, and auditing use only.*
 
-##### OSINT Stylometric Search with modular components and ML
+##### OSINT Stylometric Search with modular components and ML, enabled for agentic work
 
-OSINT Stylometric Search classifies artifacts (URL, email, username, name) from a txt list, fetches text from URLs, and correlates authorship/patterns across the web. The core is **selector search** (hard re-identification) and **stylometry** (writing-style fingerprint). Sentiment is optional enrichment.
+OSIRIS classifies artifacts (URL, email, username, name) from a txt list, fetches text from URLs, and correlates authorship/patterns across the web. The core is **selector search** (hard re-identification) and **stylometry** (writing-style fingerprint). Sentiment is optional enrichment.
 
 ## Use Cases
 

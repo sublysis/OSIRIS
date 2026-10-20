@@ -1,0 +1,6 @@
+# Optional sentiment module (downstream, only if needed), GPU/CUDA.
+# Pulls the full CUDA toolkit (several GB) - only use on machines with a real GPU.
+# For CPU-only inference instead, use requirements-sentiment.txt.
+transformers>=4.40
+torch>=2.2
+# Model: oliverguhr/german-sentiment-bert (lazy download on first call)
