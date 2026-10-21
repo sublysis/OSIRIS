@@ -354,8 +354,9 @@ Observe EU/GDPR requirements once real people are being profiled/correlated: pur
 If you have any questions or problems:
 
 1. Read the detailed README.md
-2. GitHub Issues: https://github.com/sublysis/OSIRIS/issues
-3. Email: sublysis+support@techmail.at
+2. Check /docs/ for specific topics beyond the README.md
+3. GitHub Issues: https://github.com/sublysis/OSIRIS/issues
+4. Email: sublysis+support@techmail.at
 
 ## License
 
