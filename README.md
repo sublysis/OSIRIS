@@ -287,6 +287,8 @@ If the configured model isn't installed, `--nlp` fails with a clear `RuntimeErro
 
 ### Certificate Transparency (crt.sh)
 
+==Crt.sh is known for an unreliable availability. Expect to be confronted with 502 error codes. An alternative will be considered in future reviews.==
+
 `--certs` looks up each `url` artifact's domain on [crt.sh](https://crt.sh), a free community-run CT log search service. It has **no SLA and is known to be slow or briefly return errors under normal load**, a `--certs` error means "try again," not "no certificates exist" (see[`docs/interpreting-scores.md`](docs/interpreting-scores.md)).
 
 - **`certs.crtsh_base_url`** (default `https://crt.sh`).
