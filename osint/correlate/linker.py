@@ -38,11 +38,11 @@ def build_links(artifacts, stylometry, config):
     pair_ev = defaultdict(list)
 
     _link_stylometry(pair_ev, stylometry, weights, stylometry_min)
-    _link_shared(pair_ev, _seed_domains(artifacts), weights["shared_domain"], "shared_domain", "shared source")
-    _link_shared(pair_ev, _seed_entities(artifacts), weights["shared_entity"], "shared_entity", "shared entity")
-    _link_shared(pair_ev, _seed_whois(artifacts), weights["shared_registrant"], "shared_registrant", "shared registrant")
-    _link_shared(pair_ev, _seed_favicon(artifacts), weights["shared_favicon"], "shared_favicon", "shared favicon hash")
-    _link_shared(pair_ev, _seed_certs(artifacts), weights["shared_cert"], "shared_cert", "shared TLS certificate")
+    _link_shared(pair_ev, _seed_domains(artifacts), weights["shared_domain"], "Domains", "shared source")
+    _link_shared(pair_ev, _seed_entities(artifacts), weights["shared_entity"], "Entities", "shared entity")
+    _link_shared(pair_ev, _seed_whois(artifacts), weights["shared_registrant"], "Registrants", "shared registrant")
+    _link_shared(pair_ev, _seed_favicon(artifacts), weights["shared_favicon"], "Favicons", "shared favicon hash")
+    _link_shared(pair_ev, _seed_certs(artifacts), weights["shared_cert"], "Certs", "shared TLS certificate")
     _link_seed_in_doc(pair_ev, artifacts, weights["seed_in_doc"])
 
     links = []

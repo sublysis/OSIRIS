@@ -4,7 +4,10 @@
 
 # OSIRIS - Open Source Intelligence Research & Investigative Stylometry
 
-> *Last updated: 10/2026 | Author: Laurent Schueller | For authorized penetration testing, lab / training, and auditing use only.*
+> *Version: 0.2.2
+> Last updated: 10/2026 
+> Author: Laurent Schueller
+> For authorized penetration testing, lab / training, and auditing use only.*
 
 ##### OSINT Stylometric Search with modular components and ML
 
@@ -149,23 +152,23 @@ python cli.py examples/artifacts.txt --nlp --search --whois --certs --correlate 
 
 ### Flags
 
-| Flag | Effect |
-|------|--------|
-| `--fetch` | fetch text from URL artifacts (robots.txt + rate limit); also hashes the page favicon |
-| `--whois` | RDAP WHOIS lookup for URL artifacts (registrar/registrant/dates) |
-| `--certs` | Certificate Transparency lookup via crt.sh (subdomains, certificate IDs) |
-| `--nlp` | NER, keyphrases, stylometry (implies `--fetch`) |
-| `--search` | look up selectors via search provider + maigret/holehe |
-| `--provider NAME` | provider override: `searxng` (default), `brave`, `serpapi` |
-| `--limit N` | max web hits per selector |
-| `--correlate` | shared sources/entities/style/registrant/favicon/cert -> scored links |
-| `--monitor` | compare with the previous run (new/gone targets & links) |
-| `--history` | list stored runs for this input and exit |
-| `--save` | persist run to SQLite (`config.report.db_path`) |
-| `--report [md,html,graphml,maltego]` | write reports; `graphml`/`maltego` export the `--correlate` link network as a graph (not part of the default `md,html`) |
-| `--out-dir DIR` | target directory for reports |
-| `--json FILE` | full result as JSON |
-| `--from-json FILE` | regenerate `--report`/`--json` from a previously written `--json` file, no network calls (see below); replaces `input`, skips all other pipeline flags |
+| Flag                                 | Effect                                                                                                                                                 |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--fetch`                            | fetch text from URL artifacts (robots.txt + rate limit); also hashes the page favicon                                                                  |
+| `--whois`                            | RDAP WHOIS lookup for URL artifacts (registrar/registrant/dates)                                                                                       |
+| `--certs`                            | Certificate Transparency lookup via crt.sh (subdomains, certificate IDs)                                                                               |
+| `--nlp`                              | NER, keyphrases, stylometry (implies `--fetch`)                                                                                                        |
+| `--search`                           | look up selectors via search provider + maigret/holehe                                                                                                 |
+| `--provider NAME`                    | provider override: `searxng` (default), `brave`, `serpapi`                                                                                             |
+| `--limit N`                          | max web hits per selector                                                                                                                              |
+| `--correlate`                        | shared sources/entities/style/registrant/favicon/cert -> scored links                                                                                  |
+| `--monitor`                          | compare with the previous run (new/gone targets & links)                                                                                               |
+| `--history`                          | list stored runs for this input and exit                                                                                                               |
+| `--save`                             | persist run to SQLite (`config.report.db_path`)                                                                                                        |
+| `--report [md,html,graphml,maltego]` | write reports; `graphml`/`maltego` export the `--correlate` link network as a graph (not part of the default `md,html`)                                |
+| `--out-dir DIR`                      | target directory for reports                                                                                                                           |
+| `--json FILE`                        | full result as JSON                                                                                                                                    |
+| `--from-json FILE`                   | regenerate `--report`/`--json` from a previously written `--json` file, no network calls (see below); replaces `input`, skips all other pipeline flags |
 
 Input format: one artifact per line. Type is auto-detected, but can be forced with a prefix (`name:`, `username:`, `url:`, `email:`). `#` lines and blank lines are ignored.
 
@@ -362,4 +365,4 @@ If you have any questions or problems:
 
 ## License
 
-Licensed under the [European Union Public Licence (EUPL) v1.2](LICENSE).
+Licensed under the [European Union Public Licence (EUPL) v1.2](LICENSE%20-%20MIT.md).

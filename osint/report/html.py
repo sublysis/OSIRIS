@@ -25,7 +25,7 @@ def render_html(output, meta=None):
     corr = output.get("correlation", {}) or {}
     p = [
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>",
-        "<title>Vallanx Stylomentric OSINT-Report</title><style>", _CSS, "</style></head><body>",
+        "<title>Vallanx Stylometric OSINT-Report</title><style>", _CSS, "</style></head><body>",
         "<h1>Vallanx Stylomentric OSINT-Report</h1>",
     ]
 

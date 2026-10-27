@@ -9,7 +9,7 @@ def render_markdown(output, meta=None):
     meta = meta or {}
     artifacts = output.get("artifacts", [])
     corr = output.get("correlation", {}) or {}
-    lines = ["# Vallanx Stylomentric OSINT-Report", ""]
+    lines = ["# Vallanx Stylometric OSINT-Report", ""]
 
     for label, key in (("Input", "input"), ("Created", "created_at"), ("Run-ID", "run_id")):
         if meta.get(key):
